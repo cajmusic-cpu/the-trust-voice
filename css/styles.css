@@ -166,7 +166,7 @@ nav {
 
 .panel-response p {
   font-size: 0.83rem; line-height: 1.85;
-  color: rgba(255,255,255,0.75); font-weight: 300;
+  color: rgba(255,255,255,0.75); font-weight: 400;
   margin-bottom: 1.5rem;
 }
 
@@ -210,7 +210,7 @@ nav {
 .hero h1 em { font-style: italic; color: var(--gold-light); }
 .hero-sub {
   font-size: 0.9rem; line-height: 1.9; color: rgba(255,255,255,0.6);
-  max-width: 540px; margin-bottom: 3rem; font-weight: 300;
+  max-width: 540px; margin-bottom: 3rem; font-weight: 400;
 }
 .hero-actions { display: flex; gap: 1.5rem; align-items: center; }
 .hero-scroll {
@@ -264,7 +264,7 @@ section { padding: 7rem 4rem; }
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 5rem; align-items: center; max-width: 1100px; margin: 0 auto;
 }
-.problem-text p { font-size: 0.9rem; line-height: 1.9; color: var(--slate); margin-bottom: 1.2rem; font-weight: 300; }
+.problem-text p { font-size: 0.9rem; line-height: 1.9; color: var(--slate); margin-bottom: 1.2rem; font-weight: 400; }
 .problem-quote {
   margin-top: 2.5rem; padding: 2rem 2rem 2rem 2.5rem;
   border-left: 2px solid var(--gold); background: var(--gold-pale);
@@ -287,7 +287,7 @@ section { padding: 7rem 4rem; }
   font-family: 'Cormorant Garamond', serif; font-size: 3rem;
   font-weight: 300; color: var(--gold); line-height: 1; min-width: 80px;
 }
-.stat-text { font-size: 0.8rem; color: rgba(255,255,255,0.55); line-height: 1.7; font-weight: 300; padding-top: 0.4rem; }
+.stat-text { font-size: 0.8rem; color: rgba(255,255,255,0.55); line-height: 1.7; font-weight: 400; padding-top: 0.4rem; }
 
 /* === HOW IT WORKS === */
 .section-how { background: var(--cream); }
@@ -304,7 +304,7 @@ section { padding: 7rem 4rem; }
   font-weight: 300; color: var(--stone); line-height: 1; margin-bottom: 1.5rem;
 }
 .step-title { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--navy); margin-bottom: 1rem; }
-.step-text { font-size: 0.85rem; line-height: 1.8; color: var(--slate); font-weight: 300; }
+.step-text { font-size: 0.85rem; line-height: 1.8; color: var(--slate); font-weight: 400; }
 .step-bar {
   position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.4s ease;
@@ -321,7 +321,7 @@ section { padding: 7rem 4rem; }
 }
 .diff-header .section-eyebrow::before { background: var(--gold); }
 .diff-header .section-title { color: var(--white); margin-bottom: 0; max-width: 500px; }
-.diff-lead { font-size: 0.85rem; line-height: 1.8; color: rgba(255,255,255,0.5); max-width: 320px; font-weight: 300; text-align: right; }
+.diff-lead { font-size: 0.85rem; line-height: 1.8; color: rgba(255,255,255,0.5); max-width: 320px; font-weight: 400; text-align: right; }
 .diff-feature {
   display: grid; grid-template-columns: 80px 1fr 1fr;
   gap: 2rem; align-items: start; padding: 2.5rem 0;
@@ -334,11 +334,11 @@ section { padding: 7rem 4rem; }
 }
 .diff-icon svg { width: 20px; height: 20px; fill: none; stroke: var(--gold); stroke-width: 1.5; }
 .diff-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 400; color: var(--white); margin-bottom: 0.5rem; }
-.diff-body { font-size: 0.82rem; line-height: 1.8; color: rgba(255,255,255,0.5); font-weight: 300; }
+.diff-body { font-size: 0.82rem; line-height: 1.8; color: rgba(255,255,255,0.5); font-weight: 400; }
 .diff-example {
   background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.15);
   padding: 1.5rem; font-size: 0.82rem; line-height: 1.7;
-  color: rgba(255,255,255,0.6); font-weight: 300; font-style: italic;
+  color: rgba(255,255,255,0.6); font-weight: 400; font-style: italic;
 }
 .diff-example strong {
   color: var(--gold-light); font-style: normal; font-weight: 500;
@@ -357,12 +357,12 @@ section { padding: 7rem 4rem; }
 .attorney-point:last-child { border-bottom: none; }
 .attorney-num { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; color: var(--gold); min-width: 40px; font-weight: 300; line-height: 1; }
 .attorney-text h4 { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); margin-bottom: 0.5rem; }
-.attorney-text p { font-size: 0.83rem; line-height: 1.8; color: var(--slate); font-weight: 300; }
+.attorney-text p { font-size: 0.83rem; line-height: 1.8; color: var(--slate); font-weight: 400; }
 .attorney-callout { background: var(--navy); padding: 3rem; color: var(--white); position: sticky; top: 100px; }
 .attorney-callout .section-eyebrow { color: var(--gold); margin-bottom: 1.5rem; }
 .attorney-callout .section-eyebrow::before { background: var(--gold); }
 .attorney-callout h3 { font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-weight: 300; color: var(--white); line-height: 1.3; margin-bottom: 1.5rem; }
-.attorney-callout p { font-size: 0.83rem; line-height: 1.8; color: rgba(255,255,255,0.55); margin-bottom: 2rem; font-weight: 300; }
+.attorney-callout p { font-size: 0.83rem; line-height: 1.8; color: rgba(255,255,255,0.55); margin-bottom: 2rem; font-weight: 400; }
 .attorney-callout .callout-link {
   display: inline-block; font-size: 0.68rem; letter-spacing: 0.15em; text-transform: uppercase;
   padding: 0.9rem 2rem; border: 1px solid var(--gold); color: var(--gold);
@@ -386,12 +386,12 @@ section { padding: 7rem 4rem; }
 .price-tier.featured .tier-label { color: var(--gold); }
 .tier-price { font-family: 'Cormorant Garamond', serif; font-size: 3.2rem; font-weight: 300; color: var(--navy); line-height: 1; margin-bottom: 0.25rem; }
 .price-tier.featured .tier-price { color: var(--white); }
-.tier-price-note { font-size: 0.72rem; color: var(--muted); margin-bottom: 2rem; font-weight: 300; }
+.tier-price-note { font-size: 0.72rem; color: var(--muted); margin-bottom: 2rem; font-weight: 400; }
 .price-tier.featured .tier-price-note { color: rgba(255,255,255,0.4); }
-.tier-monthly { font-size: 0.78rem; color: var(--slate); padding: 1rem 0; border-top: 1px solid var(--stone); border-bottom: 1px solid var(--stone); margin-bottom: 2rem; font-weight: 300; }
+.tier-monthly { font-size: 0.78rem; color: var(--slate); padding: 1rem 0; border-top: 1px solid var(--stone); border-bottom: 1px solid var(--stone); margin-bottom: 2rem; font-weight: 400; }
 .price-tier.featured .tier-monthly { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.1); }
 .tier-includes { list-style: none; }
-.tier-includes li { font-size: 0.8rem; color: var(--slate); padding: 0.6rem 0; display: flex; gap: 0.75rem; align-items: flex-start; font-weight: 300; line-height: 1.5; }
+.tier-includes li { font-size: 0.8rem; color: var(--slate); padding: 0.6rem 0; display: flex; gap: 0.75rem; align-items: flex-start; font-weight: 400; line-height: 1.5; }
 .price-tier.featured .tier-includes li { color: rgba(255,255,255,0.6); }
 .tier-includes li::before { content: ''; width: 12px; height: 12px; border: 1px solid var(--gold); flex-shrink: 0; margin-top: 3px; }
 .tier-includes li.highlight { font-weight: 500; }
@@ -410,7 +410,7 @@ section { padding: 7rem 4rem; }
 .cta-rule { width: 60px; height: 1px; background: var(--gold); margin: 0 auto 2rem; opacity: 0.6; }
 .section-cta h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 300; color: var(--white); line-height: 1.2; margin-bottom: 1.5rem; position: relative; }
 .section-cta h2 em { color: var(--gold-light); font-style: italic; }
-.section-cta p { font-size: 0.88rem; color: rgba(255,255,255,0.45); max-width: 480px; margin: 0 auto 3rem; line-height: 1.9; font-weight: 300; position: relative; }
+.section-cta p { font-size: 0.88rem; color: rgba(255,255,255,0.45); max-width: 480px; margin: 0 auto 3rem; line-height: 1.9; font-weight: 400; position: relative; }
 .cta-actions { display: flex; gap: 1.5rem; justify-content: center; position: relative; }
 
 /* === FOOTER === */
@@ -448,7 +448,7 @@ footer {
 .modal-close:hover { color: var(--navy); }
 .modal-eyebrow { font-size: 0.62rem; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.75rem; }
 .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 2rem; font-weight: 300; color: var(--navy); margin-bottom: 0.5rem; }
-.modal-sub { font-size: 0.82rem; color: var(--slate); line-height: 1.7; margin-bottom: 2rem; font-weight: 300; }
+.modal-sub { font-size: 0.82rem; color: var(--slate); line-height: 1.7; margin-bottom: 2rem; font-weight: 400; }
 
 /* === FORMS === */
 .contact-form { display: flex; flex-direction: column; gap: 1.25rem; }
@@ -457,7 +457,7 @@ footer {
 .form-group input,
 .form-group select,
 .form-group textarea {
-  font-family: 'Montserrat', sans-serif; font-size: 0.85rem; font-weight: 300;
+  font-family: 'Montserrat', sans-serif; font-size: 0.85rem; font-weight: 400;
   padding: 0.75rem 1rem; border: 1px solid var(--stone);
   background: var(--white); color: var(--navy); outline: none;
   transition: border-color 0.2s; width: 100%; border-radius: 0;
@@ -484,7 +484,7 @@ footer {
 .form-success { text-align: center; padding: 3rem 0; display: none; }
 .form-success.visible { display: block; }
 .success-icon { font-size: 2.5rem; color: var(--gold); margin-bottom: 1rem; }
-.form-success p { font-size: 0.9rem; color: var(--slate); line-height: 1.8; font-weight: 300; }
+.form-success p { font-size: 0.9rem; color: var(--slate); line-height: 1.8; font-weight: 400; }
 
 /* === MOBILE RESPONSIVE === */
 @media (max-width: 768px) {
