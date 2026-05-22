@@ -13,6 +13,9 @@ import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as s3_notifications from 'aws-cdk-lib/aws-s3-notifications';
 import * as config from 'aws-cdk-lib/aws-config';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 import { CLIENTS } from './config/clients';
 
@@ -460,8 +463,8 @@ export class TrustVoiceStack extends cdk.Stack {
     // below can query $.status = 403. Without structured JSON logs, you can only
     // monitor the aggregate 4XX metric, not 403 specifically.
     //
-    // CORS is configured at the API level. The React frontend (Phase 4) needs
-    // Access-Control-Allow-Origin to match its CloudFront URL. Tighten in Phase 5.
+    // CORS is locked to the custom domain. Any preflight from a different origin
+    // is rejected at the API Gateway layer before reaching Lambda.
 
     const apiAccessLogs = new logs.LogGroup(this, 'ApiAccessLogs', {
       logGroupName: '/ttv/api-gateway/access',
@@ -492,7 +495,7 @@ export class TrustVoiceStack extends cdk.Stack {
         metricsEnabled: true,
       },
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS,
+        allowOrigins: ['https://portal.thetrustvoice.com'],
         allowMethods: ['GET', 'POST', 'OPTIONS'],
         allowHeaders: ['Authorization', 'Content-Type'],
         maxAge: cdk.Duration.hours(1),
@@ -558,6 +561,81 @@ export class TrustVoiceStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiUrl', {
       value: this.api.url,
       description: 'API Gateway base URL',
+    });
+
+    // ── PORTAL FRONTEND (CloudFront + S3) ─────────────────────────────────────
+    //
+    // Private S3 bucket holds the React build output. CloudFront is the only
+    // allowed reader via Origin Access Control (OAC) — the bucket has no public
+    // access policy and no website endpoint enabled.
+    //
+    // SPA routing: S3 returns 403 for any key that doesn't exist (because the
+    // bucket is private, not 404). We map both 403 and 404 → /index.html with
+    // a 200 so the React Router handles the path client-side.
+    //
+    // To deploy the frontend after a build:
+    //   aws s3 sync dist/ s3://<PortalBucketName> --delete
+    //   aws cloudfront create-invalidation --distribution-id <id> --paths "/*"
+
+    const portalBucket = new s3.Bucket(this, 'PortalBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // ACM certificate issued for portal.thetrustvoice.com on 2026-05-22.
+    // CloudFront requires certs in us-east-1 regardless of stack region.
+    const portalCert = acm.Certificate.fromCertificateArn(
+      this,
+      'PortalCertificate',
+      'arn:aws:acm:us-east-1:595028889888:certificate/f97ae843-00e8-4295-91e7-072f106abedb',
+    );
+
+    const portalDistribution = new cloudfront.Distribution(this, 'PortalDistribution', {
+      defaultBehavior: {
+        origin: cloudfront_origins.S3BucketOrigin.withOriginAccessControl(portalBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        compress: true,
+      },
+      domainNames: ['portal.thetrustvoice.com'],
+      certificate: portalCert,
+      defaultRootObject: 'index.html',
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.seconds(0),
+        },
+        {
+          httpStatus: 404,
+          responseHttpStatus: 200,
+          responsePagePath: '/index.html',
+          ttl: cdk.Duration.seconds(0),
+        },
+      ],
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+      enableLogging: false,
+    });
+
+    new cdk.CfnOutput(this, 'PortalDistributionDomain', {
+      value: portalDistribution.distributionDomainName,
+      description: 'Add as CNAME for portal.thetrustvoice.com in GoDaddy',
+    });
+
+    new cdk.CfnOutput(this, 'PortalDistributionId', {
+      value: portalDistribution.distributionId,
+      description: 'CloudFront distribution ID — needed for cache invalidation after deploys',
+    });
+
+    new cdk.CfnOutput(this, 'PortalBucketName', {
+      value: portalBucket.bucketName,
+      description: 'Deploy React build: aws s3 sync dist/ s3://<bucket> --delete',
     });
 
     // ── CLOUDWATCH 403 ALARM ──────────────────────────────────────────────────
