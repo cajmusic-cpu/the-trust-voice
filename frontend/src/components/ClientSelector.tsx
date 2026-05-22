@@ -12,7 +12,7 @@ export function ClientSelector({ clients, onSelect, onSignOut }: Props) {
       <header className="top-bar">
         <div className="top-bar-brand">
           <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-            <rect width="32" height="32" rx="8" fill="#1e3a5f" />
+            <rect width="32" height="32" rx="8" fill="#1B2E45" />
             <path d="M16 7L7 12v8l9 5 9-5v-8L16 7z" stroke="white" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
             <path d="M16 7v13M7 12l9 5 9-5" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
           </svg>
