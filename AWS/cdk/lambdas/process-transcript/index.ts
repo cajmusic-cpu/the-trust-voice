@@ -125,6 +125,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   console.log(`Finished: ${chunks.length} chunks indexed for video ${videoId}`);
 }
 
+// eslint-disable-next-line trust-voice/require-isolation-wrapper -- S3-triggered, no JWT context
 export const handler = async (event: S3Event): Promise<void> => {
   for (const record of event.Records) {
     try {
