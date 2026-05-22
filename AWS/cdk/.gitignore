@@ -2,6 +2,7 @@
 !jest.config.js
 !eslint/rules/*.js
 *.d.ts
+!eslint/rules/*.d.ts
 node_modules
 
 # CDK asset staging directory
