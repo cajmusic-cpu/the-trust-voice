@@ -1,5 +1,6 @@
 *.js
 !jest.config.js
+!eslint/rules/*.js
 *.d.ts
 node_modules
 
