@@ -99,8 +99,8 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
           <div className="empty-state">
             <p className="empty-title">Ask about {clientName}'s wishes</p>
             <p className="empty-sub">
-              Questions about property, investments, charitable giving, family
-              instructions — anything covered in the recorded interviews.
+              Ask anything. Every answer is drawn from the grantor's recorded
+              interviews and cited by timestamp.
             </p>
           </div>
         )}

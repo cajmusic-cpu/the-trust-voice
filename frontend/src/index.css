@@ -343,7 +343,7 @@ body { min-height: 100vh; background: var(--cream); }
 }
 
 .empty-sub {
-  color: var(--muted);
+  color: #6B7280;
   font-size: 0.82rem;
   line-height: 1.8;
   max-width: 420px;
