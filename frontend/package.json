@@ -1,0 +1,25 @@
+{
+  "name": "trust-voice-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "amazon-cognito-identity-js": "^6",
+    "buffer": "^6",
+    "qrcode": "^1",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4",
+    "typescript": "~5.4",
+    "vite": "^5"
+  }
+}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# CDK build artifacts
+AWS/cdk/cdk.out/
+AWS/cdk/dist/
+
+# Frontend build output
+frontend/dist/
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Temp / OS files
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Lock files for temp Office docs
+~$*
+
+# Editor
+.vscode/

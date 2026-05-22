@@ -1,0 +1,111 @@
+name: CI / Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Lint ──────────────────────────────────────────────────────────────────
+  Lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+  # ── Test ──────────────────────────────────────────────────────────────────
+  Test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test
+        run: npm test
+
+  # ── Build ─────────────────────────────────────────────────────────────────
+  Build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build (TypeScript)
+        run: npm run build
+
+  # ── Deploy CDK stack ───────────────────────────────────────────────────────
+  # Only runs on push to main (not on PRs), and only after all CI jobs pass.
+  deploy:
+    name: Deploy to AWS
+    needs: [Lint, Test, Build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy
+        run: npx cdk deploy --require-approval never
