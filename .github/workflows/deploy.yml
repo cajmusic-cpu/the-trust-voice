@@ -7,9 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # ── Lint, test, and build ──────────────────────────────────────────────────
-  ci:
-    name: Lint · Test · Build
+  # ── Lint ──────────────────────────────────────────────────────────────────
+  Lint:
+    name: Lint
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,17 +30,57 @@ jobs:
       - name: Lint
         run: npm run lint
 
+  # ── Test ──────────────────────────────────────────────────────────────────
+  Test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
       - name: Test
         run: npm test
+
+  # ── Build ─────────────────────────────────────────────────────────────────
+  Build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AWS/cdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: AWS/cdk/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
 
       - name: Build (TypeScript)
         run: npm run build
 
   # ── Deploy CDK stack ───────────────────────────────────────────────────────
-  # Only runs on push to main (not on PRs), and only after ci passes.
+  # Only runs on push to main (not on PRs), and only after all CI jobs pass.
   deploy:
     name: Deploy to AWS
-    needs: ci
+    needs: [Lint, Test, Build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
