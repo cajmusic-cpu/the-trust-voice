@@ -56,17 +56,6 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
     }
   }
 
-  async function openVideoAtTime(videoId: string, startTime: number) {
-    const cacheKey = `${clientId}/${videoId}`;
-    let url = videoUrlCache.get(cacheKey);
-    if (!url) {
-      url = await getVideoUrl(clientId, videoId);
-      videoUrlCache.set(cacheKey, url);
-    }
-    // #t=N tells the browser's native video player to seek to that second
-    window.open(`${url}#t=${Math.floor(startTime)}`, '_blank', 'noopener');
-  }
-
   function handleSignOut() {
     signOut();
     onSignOut();
@@ -129,14 +118,8 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
                         <span className="citation-speaker">
                           {formatSpeaker(c.speaker)}
                         </span>
-                        <button
-                          className="citation-watch-btn"
-                          onClick={() => void openVideoAtTime(c.videoId, c.startTime)}
-                          title={`Watch at ${formatTime(c.startTime)}`}
-                        >
-                          ▶ Watch
-                        </button>
                       </div>
+                      <CitationVideo clientId={clientId} videoId={c.videoId} startTime={c.startTime} />
                       <blockquote className="citation-quote">"{c.quote}"</blockquote>
                     </div>
                   ))}
@@ -227,4 +210,72 @@ function formatSpeaker(label: string): string {
   if (label === 'spk_1') return 'Interviewer';
   const n = parseInt(label.replace(/\D/g, ''));
   return isNaN(n) ? label : `Speaker ${n + 1}`;
+}
+
+function CitationVideo({ clientId, videoId, startTime }: { clientId: string; videoId: string; startTime: number }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const cacheKey = `${clientId}/${videoId}`;
+    const cached = videoUrlCache.get(cacheKey);
+    if (cached) {
+      setUrl(cached);
+    } else {
+      getVideoUrl(clientId, videoId)
+        .then(u => { videoUrlCache.set(cacheKey, u); setUrl(u); })
+        .catch(() => setLoadError(true));
+    }
+  }, [clientId, videoId]);
+
+  function handleLoadedMetadata() {
+    if (videoRef.current) videoRef.current.currentTime = startTime;
+  }
+
+  function handleSeeked() {
+    if (!ready) setReady(true);
+  }
+
+  if (loadError) return null;
+
+  return (
+    <div className="citation-video-wrap">
+      {!url && (
+        <div className="citation-video-loading">
+          <span className="citation-video-spinner" />
+        </div>
+      )}
+      {url && (
+        <>
+          <video
+            ref={videoRef}
+            className={`citation-video${ready ? ' citation-video--ready' : ''}`}
+            src={url}
+            preload="metadata"
+            playsInline
+            onLoadedMetadata={handleLoadedMetadata}
+            onSeeked={handleSeeked}
+            onPlay={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            controls={playing}
+          />
+          {!playing && (
+            <button
+              className={`citation-play-overlay${ready ? ' citation-play-overlay--ready' : ''}`}
+              onClick={() => void videoRef.current?.play().catch(() => {})}
+              aria-label="Play video"
+            >
+              <svg className="citation-play-icon" viewBox="0 0 80 80" fill="none">
+                <circle cx="40" cy="40" r="40" fill="rgba(15,30,46,0.6)" />
+                <path d="M32 26l24 14-24 14V26z" fill="white" />
+              </svg>
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
 }
