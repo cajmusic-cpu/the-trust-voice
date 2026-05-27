@@ -9,6 +9,9 @@ export interface IsolationContext {
   // Every client ID this trustee is authorized to access, from the Cognito JWT.
   // Derived from cognito:groups — set by API Gateway after verifying JWT signature.
   authorizedClients: string[];
+
+  // The trustee's email address, from the Cognito JWT 'email' claim.
+  userEmail: string;
 }
 
 export type IsolatedHandler = (
@@ -57,6 +60,6 @@ export function withClientIsolation(fn: IsolatedHandler): Handler {
       return forbidden();
     }
 
-    return fn(event, { clientId: requestedClientId, authorizedClients });
+    return fn(event, { clientId: requestedClientId, authorizedClients, userEmail: claims['email'] ?? '' });
   };
 }

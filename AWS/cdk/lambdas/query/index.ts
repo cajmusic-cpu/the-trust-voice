@@ -5,6 +5,7 @@ import { embedText } from '../shared/embed';
 import { searchChunks, type ChunkMatch } from '../shared/pinecone';
 import { queryWithContext } from '../shared/claude';
 import { buildCitations } from '../shared/citations';
+import { logQuery } from './log';
 
 interface QueryBody {
   question: string;
@@ -90,7 +91,7 @@ function parseBody(event: APIGatewayProxyEvent): QueryBody | null {
 export const handler = withClientIsolation(
   async (
     event: APIGatewayProxyEvent,
-    { clientId }: IsolationContext,
+    { clientId, userEmail }: IsolationContext,
   ): Promise<APIGatewayProxyResult> => {
     // clientId is guaranteed non-null here — withClientIsolation validated it
     // against the JWT, and this route always has a {clientId} path parameter.
@@ -142,6 +143,9 @@ export const handler = withClientIsolation(
         },
       }));
       const citations = buildCitations(refinedMatches, usedCitationIndices);
+
+      void logQuery({ clientId, userEmail, question, citationCount: citations.length })
+        .catch(err => console.error('Failed to write query log:', err));
 
       return ok({ answer, citations });
     } catch (err) {
