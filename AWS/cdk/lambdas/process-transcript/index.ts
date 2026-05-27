@@ -114,6 +114,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       end_time: chunk.endTime,
       speaker: chunk.speaker,
       text: chunk.text,
+      sentences_json: JSON.stringify(chunk.sentences),
     },
   }));
 

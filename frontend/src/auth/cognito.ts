@@ -72,6 +72,9 @@ export async function completeNewPassword(
       totpRequired() {
         resolve({ status: 'mfa_required', user });
       },
+      mfaSetup() {
+        resolve({ status: 'totp_setup', user });
+      },
     });
   });
 }

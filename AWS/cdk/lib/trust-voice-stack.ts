@@ -139,9 +139,9 @@ export class TrustVoiceStack extends cdk.Stack {
         userSrp: true,
       },
       generateSecret: false,
-      accessTokenValidity: cdk.Duration.hours(1),
-      idTokenValidity: cdk.Duration.hours(1),
-      refreshTokenValidity: cdk.Duration.days(30),
+      accessTokenValidity: cdk.Duration.minutes(30),
+      idTokenValidity: cdk.Duration.minutes(30),
+      refreshTokenValidity: cdk.Duration.days(1),
     });
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });

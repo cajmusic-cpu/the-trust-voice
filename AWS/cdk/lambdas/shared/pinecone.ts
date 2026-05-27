@@ -14,6 +14,7 @@ export interface ChunkMetadata extends RecordMetadata {
   end_time: number;
   speaker: string;
   text: string;        // the transcript excerpt shown as a citation quote
+  sentences_json: string;  // JSON-encoded [{startTime, text}] for sub-chunk seeking
 }
 
 export interface ChunkVector {
@@ -26,6 +27,7 @@ export interface ChunkMatch {
   id: string;
   score: number;
   metadata: ChunkMetadata;
+  values: number[];  // embedding vector — used for pairwise similarity deduplication
 }
 
 // Cached at module level — one Pinecone Index client per cold start.
@@ -68,7 +70,7 @@ export async function upsertChunks(namespace: string, vectors: ChunkVector[]): P
 export async function searchChunks(
   namespace: string,
   embedding: number[],
-  topK = 6,
+  topK = 3,
 ): Promise<ChunkMatch[]> {
   const index = await getIndex();
   const ns = index.namespace(namespace);
@@ -77,6 +79,7 @@ export async function searchChunks(
     vector: embedding,
     topK,
     includeMetadata: true,
+    includeValues: true,
   });
 
   return (res.matches ?? [])
@@ -85,5 +88,6 @@ export async function searchChunks(
       id: m.id,
       score: m.score ?? 0,
       metadata: m.metadata as unknown as ChunkMetadata,
+      values: m.values ?? [],
     }));
 }
