@@ -1,14 +1,42 @@
 import type { Word } from './parseTranscript';
 
+export interface Sentence {
+  startTime: number;
+  text: string;
+}
+
 export interface Chunk {
   chunkIndex: number;
   text: string;
   startTime: number;
   endTime: number;
   speaker: string;    // dominant speaker (most words in the chunk)
+  sentences: Sentence[];
 }
 
-const MAX_WORDS = 200;
+// ~35s at conversational pace; small enough that startTime is meaningful.
+const MAX_WORDS = 80;
+
+// Groups words into sentences by terminal punctuation (.?!).
+// Requires at least 5 words before cutting to avoid splitting on abbreviations.
+function buildSentences(words: Word[]): Sentence[] {
+  const sentences: Sentence[] = [];
+  let buf: Word[] = [];
+
+  for (const word of words) {
+    buf.push(word);
+    if (buf.length >= 5 && /[.?!]$/.test(word.text)) {
+      sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' ') });
+      buf = [];
+    }
+  }
+
+  if (buf.length > 0) {
+    sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' ') });
+  }
+
+  return sentences;
+}
 
 // Splits a word list into Chunks of at most MAX_WORDS words.
 //
@@ -51,6 +79,7 @@ export function buildChunks(words: Word[]): Chunk[] {
       startTime: slice[0].startTime,
       endTime: slice[slice.length - 1].endTime,
       speaker,
+      sentences: buildSentences(slice),
     });
 
     start = end;

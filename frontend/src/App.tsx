@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { CognitoUser } from 'amazon-cognito-identity-js';
-import { signIn, confirmMfa, completeNewPassword, hasStoredSession } from './auth/cognito';
+import { signIn, confirmMfa, completeNewPassword, hasStoredSession, signOut as cognitoSignOut } from './auth/cognito';
 import { getClients, type Client } from './api/client';
 import { LoginForm } from './components/LoginForm';
 import { MfaForm } from './components/MfaForm';
@@ -21,6 +21,30 @@ type Screen =
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ id: 'loading' });
   const [pendingEmail, setPendingEmail] = useState('');
+
+  const INACTIVITY_MS = 30 * 60 * 1000;
+  const authenticated = screen.id === 'client_select' || screen.id === 'query';
+
+  const forceSignOut = useCallback(() => {
+    cognitoSignOut();
+    setScreen({ id: 'login' });
+  }, []);
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const reset = () => {
+      clearTimeout(timer);
+      timer = setTimeout(forceSignOut, INACTIVITY_MS);
+    };
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const;
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset();
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [authenticated, forceSignOut]);
 
   // On mount: check for a stored Cognito session so returning users skip login.
   useEffect(() => {
@@ -71,12 +95,15 @@ export default function App() {
     const result = await completeNewPassword(screen.user, newPassword);
     if (result.status === 'mfa_required') {
       setScreen({ id: 'mfa', user: result.user });
+    } else if (result.status === 'totp_setup') {
+      setScreen({ id: 'totp_setup', user: result.user, email: pendingEmail });
     } else {
       await loadClients();
     }
   }
 
   function handleSignOut(): void {
+    cognitoSignOut();
     setScreen({ id: 'login' });
   }
 
