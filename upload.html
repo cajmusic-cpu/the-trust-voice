@@ -405,7 +405,11 @@
 (function () {
   'use strict';
 
-  var presignedUrl = new URLSearchParams(window.location.search).get('url');
+  var API_BASE = 'https://xjqh5tcvte.execute-api.us-east-1.amazonaws.com/prod';
+
+  var params      = new URLSearchParams(window.location.search);
+  var token       = params.get('token');
+  var presignedUrl = null; // populated after token exchange or directly from ?url=
 
   function show(state) {
     document.querySelectorAll('[data-state]').forEach(function (el) {
@@ -420,9 +424,29 @@
     return                               (bytes / 1073741824).toFixed(2) + ' GB';
   }
 
-  if (!presignedUrl) { show('no-url'); return; }
+  function init(url) {
+    presignedUrl = url;
+    show('ready');
+    wireUI();
+  }
 
-  show('ready');
+  if (token) {
+    // Short-token flow: exchange token for presigned URL via API
+    fetch(API_BASE + '/upload-url?token=' + encodeURIComponent(token))
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.url) { show('no-url'); return; }
+        init(data.url);
+      })
+      .catch(function () { show('no-url'); });
+  } else {
+    // Legacy direct-URL flow (kept for backward compatibility)
+    var directUrl = params.get('url');
+    if (!directUrl) { show('no-url'); return; }
+    init(directUrl);
+  }
+
+  function wireUI() {
 
   // ── File selection ────────────────────────────────────────────────────
   var selectedFile = null;
@@ -496,6 +520,7 @@
     document.getElementById('error-detail').textContent = msg;
     show('error');
   }
+  } // end wireUI
 }());
 </script>
 
