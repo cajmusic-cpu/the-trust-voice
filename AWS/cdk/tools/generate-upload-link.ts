@@ -39,13 +39,22 @@ const bucket = `ttv-${clientId}-videos`;
 const key = `${videoId}/interview.mp4`;
 
 async function main(): Promise<void> {
-  const s3 = new S3Client({ region: 'us-east-1' });
+  // requestChecksumCalculation: 'WHEN_REQUIRED' prevents the SDK from embedding
+  // a CRC32 checksum in the presigned URL. Without this, the URL includes an
+  // x-amz-checksum-crc32 query parameter signed against an empty payload, which
+  // would cause S3 to reject any non-empty upload from a browser.
+  const s3 = new S3Client({
+    region: 'us-east-1',
+    requestChecksumCalculation: 'WHEN_REQUIRED' as never,
+  });
 
-  const url = await getSignedUrl(
+  const presignedS3Url = await getSignedUrl(
     s3,
     new PutObjectCommand({ Bucket: bucket, Key: key }),
     { expiresIn: EXPIRES_SECONDS },
   );
+
+  const url = `https://upload.thetrustvoice.com?url=${encodeURIComponent(presignedS3Url)}`;
 
   const expiresAt = new Date(Date.now() + EXPIRES_SECONDS * 1000);
   const expiresStr = expiresAt.toLocaleString('en-US', {
@@ -74,49 +83,28 @@ async function main(): Promise<void> {
 
 ──────────────────── COPY EMAIL BELOW ────────────────────
 
-Subject: Interview Upload Instructions — ${client!.name}
+Subject: Interview Upload Link — ${client!.name}
 
 Hi,
 
-Here is your secure link to upload the interview recording. No accounts
-or special software are required — just follow the steps below.
+Please use the link below to upload the interview recording. No account
+or software installation is required — just click the link, select your
+file, and upload.
 
-────────────────────────────────────────
-STEP 1 — Open a terminal
+  ${url}
 
-  Mac:     press Command + Space, type Terminal, press Enter
-  Windows: press Windows + R, type cmd, press Enter
+HOW TO UPLOAD
 
-────────────────────────────────────────
-STEP 2 — Navigate to your video file
-
-  Type the following command and press Enter, replacing the path
-  with the folder that contains your video:
-
-    Mac:     cd /path/to/your/video/folder
-    Windows: cd C:\\path\\to\\your\\video\\folder
-
-  Mac shortcut: type  cd  (with a space), then drag the folder
-  from Finder into the Terminal window and press Enter.
-
-────────────────────────────────────────
-STEP 3 — Upload the file
-
-  Paste the command below into the terminal, replace
-  your-video.mp4 with your actual filename, then press Enter:
-
-    curl --upload-file "your-video.mp4" "${url}"
-
-  A progress bar will appear. When it finishes, the upload is
-  complete — you can close the terminal.
-
-────────────────────────────────────────
+  1. Click the link above (or copy and paste it into your browser).
+  2. On the upload page, click "Select file" or drag your video file
+     onto the page.
+  3. Click "Upload Recording" and wait for the progress bar to reach
+     100%. Do not close the browser tab until it completes.
 
 This link expires ${expiresStr}.
+It can be used once and does not provide access to any other files.
 
-It accepts one upload only and does not grant access to any other
-files or data. If you run into any trouble, just reply to this
-email and I'll help right away.
+If you have any trouble, reply to this email and I'll help right away.
 
 ──────────────────── END EMAIL ────────────────────
 `);

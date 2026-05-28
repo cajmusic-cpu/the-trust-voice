@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Interview — The Trust Voice</title>
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy-deep: #0F1E2E;
+      --navy:      #1B2E45;
+      --gold:      #C9A84C;
+      --gold-dim:  rgba(201,168,76,0.35);
+      --white:     #FFFFFF;
+      --muted:     rgba(255,255,255,0.50);
+      --muted-lo:  rgba(255,255,255,0.18);
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--navy-deep);
+      font-family: 'Montserrat', sans-serif;
+      color: var(--white);
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 3rem 1.5rem 2rem;
+    }
+
+    /* ── Logo ────────────────────────────────────────────────────────── */
+    .logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.15rem;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--white);
+      text-align: center;
+      margin-bottom: 2.75rem;
+    }
+    .logo span { color: var(--gold); }
+    .logo-rule {
+      width: 36px;
+      height: 1px;
+      background: var(--gold-dim);
+      margin: 0.6rem auto 0;
+    }
+
+    /* ── Card ────────────────────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 520px;
+      text-align: center;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2.15rem;
+      font-weight: 400;
+      letter-spacing: 0.03em;
+      line-height: 1.15;
+      margin-bottom: 0.5rem;
+    }
+
+    .eyebrow {
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 2.25rem;
+    }
+
+    /* ── Drop zone ───────────────────────────────────────────────────── */
+    .drop-zone {
+      position: relative;
+      border: 1px dashed var(--gold-dim);
+      border-radius: 3px;
+      padding: 3rem 2rem 2.5rem;
+      cursor: pointer;
+      transition: border-color 0.18s, background 0.18s;
+      background: rgba(255,255,255,0.02);
+      margin-bottom: 1.25rem;
+    }
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--gold);
+      background: rgba(201,168,76,0.05);
+    }
+    /* Invisible file input covers the whole zone */
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon { margin-bottom: 1rem; line-height: 0; }
+    .drop-icon svg { width: 42px; height: 42px; stroke: rgba(201,168,76,0.55); }
+
+    .drop-primary {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--white);
+      margin-bottom: 0.35rem;
+    }
+    .drop-secondary {
+      font-size: 0.67rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── File info row ───────────────────────────────────────────────── */
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 3px;
+      padding: 0.875rem 1rem;
+      margin-bottom: 1.25rem;
+      text-align: left;
+    }
+    .file-row svg {
+      flex-shrink: 0;
+      width: 18px;
+      height: 18px;
+      stroke: var(--gold);
+    }
+    .file-row-text { min-width: 0; flex: 1; }
+    .file-name {
+      font-size: 0.8rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-size {
+      font-size: 0.67rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+    .change-btn {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      cursor: pointer;
+      padding: 0;
+    }
+    .change-btn:hover { text-decoration: underline; }
+
+    /* ── Primary button ──────────────────────────────────────────────── */
+    .btn-primary {
+      display: block;
+      width: 100%;
+      padding: 1rem;
+      background: var(--gold);
+      color: var(--navy-deep);
+      border: none;
+      border-radius: 2px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* ── Progress ────────────────────────────────────────────────────── */
+    .progress-wrap { margin: 1.75rem 0 1.25rem; }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.6rem;
+    }
+    .progress-label {
+      font-size: 0.62rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .progress-pct {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.6rem;
+      font-weight: 300;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .progress-track {
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--gold);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .progress-bytes {
+      margin-top: 0.4rem;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+    }
+    .progress-note {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      line-height: 1.75;
+      color: var(--muted);
+    }
+
+    /* ── Success / Error shared ──────────────────────────────────────── */
+    .icon-ring {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 1px solid var(--gold-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+    }
+    .icon-ring svg { width: 26px; height: 26px; }
+    .icon-ring--error { border-color: rgba(229,115,115,0.35); }
+    .icon-ring--error svg { stroke: #e57373; }
+    .icon-ring--ok svg { stroke: var(--gold); }
+
+    .state-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 2rem;
+      font-weight: 400;
+      margin-bottom: 0.75rem;
+    }
+    .state-body {
+      font-size: 0.78rem;
+      line-height: 1.8;
+      color: var(--muted);
+    }
+    .state-body a { color: var(--gold); text-decoration: none; }
+    .state-body a:hover { text-decoration: underline; }
+
+    /* ── Footer ──────────────────────────────────────────────────────── */
+    footer {
+      margin-top: 3.5rem;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted-lo);
+      text-align: center;
+    }
+
+    @media (max-width: 480px) {
+      h1 { font-size: 1.75rem; }
+      .drop-zone { padding: 2.25rem 1.25rem 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="logo">The <span>Trust</span> Voice<div class="logo-rule"></div></div>
+
+<div class="card">
+
+  <!-- ── Ready: no file selected ─────────────────────────────────────── -->
+  <div data-state="ready">
+    <h1>Upload Your Recording</h1>
+    <p class="eyebrow">Secure &middot; Private &middot; Encrypted</p>
+
+    <div class="drop-zone" id="drop-zone-ready">
+      <input type="file" id="file-input" accept="video/*,audio/*,.mp4,.mov,.avi,.mkv,.m4v,.mxf,.mts,.m2ts">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </div>
+      <p class="drop-primary">Drag your video file here</p>
+      <p class="drop-secondary">or click to select</p>
+    </div>
+  </div>
+
+  <!-- ── Selected: file chosen, ready to send ────────────────────────── -->
+  <div data-state="selected" style="display:none">
+    <h1>Ready to Upload</h1>
+    <p class="eyebrow">Review your file below</p>
+
+    <div class="file-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <div class="file-row-text">
+        <div class="file-name" id="file-name"></div>
+        <div class="file-size" id="file-size"></div>
+      </div>
+      <button class="change-btn" id="change-btn">Change</button>
+    </div>
+
+    <button class="btn-primary" id="upload-btn">Upload Recording</button>
+  </div>
+
+  <!-- ── Uploading: in progress ──────────────────────────────────────── -->
+  <div data-state="uploading" style="display:none">
+    <h1>Uploading&hellip;</h1>
+    <p class="eyebrow">Please keep this window open</p>
+
+    <div class="progress-wrap">
+      <div class="progress-header">
+        <span class="progress-label">Upload progress</span>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <div class="progress-bytes" id="progress-bytes"></div>
+    </div>
+
+    <p class="progress-note">
+      Large video files may take several minutes depending on your connection
+      speed. Do not close or refresh this page until the upload completes.
+    </p>
+  </div>
+
+  <!-- ── Success ─────────────────────────────────────────────────────── -->
+  <div data-state="success" style="display:none">
+    <div class="icon-ring icon-ring--ok">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <h1 class="state-title">Upload Complete</h1>
+    <p class="state-body">
+      Your recording has been received securely.<br>
+      You may now close this window — no further action is required.
+    </p>
+  </div>
+
+  <!-- ── Error ───────────────────────────────────────────────────────── -->
+  <div data-state="error" style="display:none">
+    <div class="icon-ring icon-ring--error">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h1 class="state-title">Upload Failed</h1>
+    <p class="state-body" id="error-detail"></p>
+    <p class="state-body" style="margin-top:1rem">
+      Please reach out and we&rsquo;ll send a new link right away:<br>
+      <a href="mailto:joe.estes@thetrustvoice.com">joe.estes@thetrustvoice.com</a>
+    </p>
+  </div>
+
+  <!-- ── No URL: missing or invalid link ─────────────────────────────── -->
+  <div data-state="no-url" style="display:none">
+    <div class="icon-ring icon-ring--error">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    </div>
+    <h1 class="state-title">Link Not Found</h1>
+    <p class="state-body">
+      This upload link appears to be incomplete or has expired.<br>
+      Upload links are valid for 48 hours from the time they are sent.
+    </p>
+    <p class="state-body" style="margin-top:1rem">
+      Please request a new link from:<br>
+      <a href="mailto:joe.estes@thetrustvoice.com">joe.estes@thetrustvoice.com</a>
+    </p>
+  </div>
+
+</div><!-- /.card -->
+
+<footer>&copy; 2026 The Trust Voice LLC &middot; South Carolina</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  var presignedUrl = new URLSearchParams(window.location.search).get('url');
+
+  function show(state) {
+    document.querySelectorAll('[data-state]').forEach(function (el) {
+      el.style.display = (el.getAttribute('data-state') === state) ? '' : 'none';
+    });
+  }
+
+  function fmt(bytes) {
+    if (bytes < 1024)             return bytes + ' B';
+    if (bytes < 1048576)          return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1073741824)       return (bytes / 1048576).toFixed(1) + ' MB';
+    return                               (bytes / 1073741824).toFixed(2) + ' GB';
+  }
+
+  if (!presignedUrl) { show('no-url'); return; }
+
+  show('ready');
+
+  // ── File selection ────────────────────────────────────────────────────
+  var selectedFile = null;
+  var fileInput    = document.getElementById('file-input');
+  var dropZone     = document.getElementById('drop-zone-ready');
+
+  function pickFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-size').textContent = fmt(file.size);
+    show('selected');
+  }
+
+  dropZone.addEventListener('dragover',  function (e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', function ()  { dropZone.classList.remove('drag-over'); });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    pickFile(e.dataTransfer.files[0]);
+  });
+
+  fileInput.addEventListener('change', function () { pickFile(fileInput.files[0]); });
+
+  document.getElementById('change-btn').addEventListener('click', function () {
+    selectedFile    = null;
+    fileInput.value = '';
+    show('ready');
+  });
+
+  // ── Upload ────────────────────────────────────────────────────────────
+  document.getElementById('upload-btn').addEventListener('click', function () {
+    if (selectedFile) startUpload(selectedFile);
+  });
+
+  function startUpload(file) {
+    show('uploading');
+
+    var pctEl   = document.getElementById('progress-pct');
+    var barEl   = document.getElementById('progress-bar');
+    var bytesEl = document.getElementById('progress-bytes');
+
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', presignedUrl);
+    if (file.type) xhr.setRequestHeader('Content-Type', file.type);
+
+    xhr.upload.addEventListener('progress', function (e) {
+      if (!e.lengthComputable) return;
+      var pct = Math.round((e.loaded / e.total) * 100);
+      barEl.style.width    = pct + '%';
+      pctEl.textContent    = pct + '%';
+      bytesEl.textContent  = fmt(e.loaded) + ' of ' + fmt(e.total);
+    });
+
+    xhr.addEventListener('load', function () {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        show('success');
+      } else {
+        showError('The server returned an error (HTTP ' + xhr.status + '). The link may have expired or already been used.');
+      }
+    });
+
+    xhr.addEventListener('error', function () {
+      showError('A network error occurred. Please check your internet connection and try again.');
+    });
+
+    xhr.send(file);
+  }
+
+  function showError(msg) {
+    document.getElementById('error-detail').textContent = msg;
+    show('error');
+  }
+}());
+</script>
+
+</body>
+</html>

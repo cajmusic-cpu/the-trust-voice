@@ -53,6 +53,16 @@ export class TrustVoiceStack extends cdk.Stack {
         versioned: true,
         enforceSSL: true,
         removalPolicy: cdk.RemovalPolicy.RETAIN,
+        cors: [
+          {
+            // Allow the branded upload page to PUT directly to S3 via presigned URL.
+            // GET/DELETE are intentionally excluded — videographers can upload only.
+            allowedMethods: [s3.HttpMethods.PUT],
+            allowedOrigins: ['https://upload.thetrustvoice.com'],
+            allowedHeaders: ['*'],
+            maxAge: 3000,
+          },
+        ],
       });
 
       const transcripts = new s3.Bucket(this, `TranscriptsBucket-${client.id}`, {
