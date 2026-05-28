@@ -95,6 +95,16 @@ export class TrustVoiceStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    const queryLogTable = new dynamodb.Table(this, 'QueryLogTable', {
+      tableName: 'ttv-query-log',
+      partitionKey: { name: 'client_id', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'timestamp', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     new cdk.CfnOutput(this, 'VideosTableName', { value: this.videosTable.tableName });
     new cdk.CfnOutput(this, 'ChunksTableName', { value: this.chunksTable.tableName });
 
@@ -238,6 +248,7 @@ export class TrustVoiceStack extends cdk.Stack {
     });
     this.chunksTable.grantReadData(this.queryLambdaRole);
     this.videosTable.grantReadData(this.queryLambdaRole);
+    queryLogTable.grantWriteData(this.queryLambdaRole);
     this.queryLambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: ['bedrock:InvokeModel'],
       resources: [`arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`],
@@ -356,6 +367,7 @@ export class TrustVoiceStack extends cdk.Stack {
         PINECONE_SECRET_ARN: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:ttv/pinecone-api-key`,
         PINECONE_INDEX_NAME: 'ttv-embeddings',
         PINECONE_INDEX_HOST: 'https://ttv-embeddings-he5dsra.svc.aped-4627-b74a.pinecone.io',
+        QUERY_LOG_TABLE: queryLogTable.tableName,
       },
       bundling: {
         minify: true,
