@@ -3,10 +3,13 @@
 
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { randomUUID } from 'crypto';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { randomUUID, randomBytes } from 'crypto';
 import { CLIENTS } from '../lib/config/clients';
 
 const EXPIRES_SECONDS = 48 * 60 * 60; // 48 hours
+const UPLOAD_TOKENS_TABLE = 'ttv-upload-tokens';
 
 // ─── Args ─────────────────────────────────────────────────────────────────────
 
@@ -38,6 +41,13 @@ const videoId = randomUUID();
 const bucket = `ttv-${clientId}-videos`;
 const key = `${videoId}/interview.mp4`;
 
+// 12 alphanumeric chars — short enough to survive any email client, unique enough
+// to be unguessable (2^71 combinations with base-62 charset).
+function makeToken(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(randomBytes(12)).map(b => chars[b % chars.length]).join('');
+}
+
 async function main(): Promise<void> {
   // requestChecksumCalculation: 'WHEN_REQUIRED' prevents the SDK from embedding
   // a CRC32 checksum in the presigned URL. Without this, the URL includes an
@@ -54,7 +64,18 @@ async function main(): Promise<void> {
     { expiresIn: EXPIRES_SECONDS },
   );
 
-  const url = `https://upload.thetrustvoice.com?url=${encodeURIComponent(presignedS3Url)}`;
+  // Store presigned URL behind a short token so the email link stays short and
+  // survives any email client that wraps or truncates long URLs.
+  const token = makeToken();
+  const expiresAtEpoch = Math.floor(Date.now() / 1000) + EXPIRES_SECONDS;
+
+  const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
+  await ddb.send(new PutCommand({
+    TableName: UPLOAD_TOKENS_TABLE,
+    Item: { token, presigned_url: presignedS3Url, expires_at: expiresAtEpoch },
+  }));
+
+  const url = `https://upload.thetrustvoice.com?token=${token}`;
 
   const expiresAt = new Date(Date.now() + EXPIRES_SECONDS * 1000);
   const expiresStr = expiresAt.toLocaleString('en-US', {
@@ -70,6 +91,7 @@ async function main(): Promise<void> {
   const meta = [
     `Client:   ${client!.name}`,
     note ? `Note:     ${note}` : '',
+    `Token:    ${token}`,
     `Video ID: ${videoId}`,
     `Bucket:   ${bucket}`,
     `Key:      ${key}`,
