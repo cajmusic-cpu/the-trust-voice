@@ -6,7 +6,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "lint": "eslint 'lambdas/**/*.ts'",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "upload-link": "ts-node tools/generate-upload-link.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3",
