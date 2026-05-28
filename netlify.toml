@@ -1,6 +1,19 @@
 [build]
   publish = "."
 
+# Serve the upload page for any request on the upload subdomain
+[[redirects]]
+  from = "https://upload.thetrustvoice.com/"
+  to = "/upload.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://upload.thetrustvoice.com/*"
+  to = "/upload.html"
+  status = 200
+  force = true
+
 [[headers]]
   for = "/*"
   [headers.values]
