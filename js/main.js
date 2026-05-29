@@ -62,7 +62,13 @@ document.querySelectorAll('.open-consultation-modal').forEach(el => {
 });
 
 document.querySelectorAll('.open-advisor-modal').forEach(el => {
-  el.addEventListener('click', e => { e.preventDefault(); openModal('advisorModal'); });
+  el.addEventListener('click', e => {
+    e.preventDefault();
+    const email = el.dataset.contactEmail || 'advisors@thetrustvoice.com';
+    const errorLink = document.getElementById('advisorErrorEmail');
+    if (errorLink) { errorLink.href = 'mailto:' + email; errorLink.textContent = email; }
+    openModal('advisorModal');
+  });
 });
 
 document.querySelectorAll('.modal-close').forEach(btn => {
