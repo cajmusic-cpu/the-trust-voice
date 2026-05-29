@@ -312,6 +312,34 @@ section { padding: 7rem 4rem; }
 }
 .how-step:hover .step-bar { transform: scaleX(1); }
 
+/* === KEY BENEFITS === */
+.section-benefits {
+  background: var(--navy-deep);
+  padding: 6rem 4rem;
+  border-top: 1px solid rgba(201,168,76,0.15);
+  border-bottom: 1px solid rgba(201,168,76,0.15);
+}
+.benefits-inner { max-width: 760px; margin: 0 auto; }
+.benefits-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 4vw, 2.75rem); font-weight: 400;
+  color: var(--white); line-height: 1.2;
+  margin-bottom: 3rem;
+}
+.benefits-list { list-style: none; display: flex; flex-direction: column; gap: 1.75rem; }
+.benefits-list li {
+  display: flex; align-items: baseline; gap: 1.25rem;
+}
+.benefits-mark {
+  flex-shrink: 0;
+  color: var(--gold); font-weight: 600; font-size: 1.1rem; line-height: 1;
+  margin-top: 0.05em;
+}
+.benefits-list li span:last-child {
+  font-size: 0.92rem; line-height: 1.8;
+  color: rgba(255,255,255,0.75); font-family: 'Montserrat', sans-serif; font-weight: 400;
+}
+
 /* === DIFFERENCE SECTION === */
 .section-diff { background: var(--navy); color: var(--white); }
 .diff-inner { max-width: 1100px; margin: 0 auto; }
