@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAQ — The Trust Voice</title>
+  <meta name="description" content="Frequently asked questions about The Trust Voice — legacy preservation, trustee guidance, privacy, security, and the interview process.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-HMP755LSM4"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-HMP755LSM4');
+  </script>
+  <!-- Meta Pixel -->
+  <script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1699938624688112');
+  fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1699938624688112&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel -->
+  <style>
+    /* ── FAQ-specific styles ───────────────────────────────────────────── */
+
+    /* Hero */
+    .faq-hero {
+      background: var(--navy-deep);
+      padding: 9rem 4rem 6rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(201,168,76,0.2);
+      position: relative;
+    }
+    .faq-hero::before {
+      content: '';
+      position: absolute; top: 72px; left: 4rem; right: 4rem;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.4;
+    }
+    .faq-hero-eyebrow {
+      font-size: 0.65rem; font-weight: 600; letter-spacing: 0.22em;
+      text-transform: uppercase; color: var(--gold);
+      margin-bottom: 1.25rem;
+    }
+    .faq-hero h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2.25rem, 5vw, 3.75rem);
+      font-weight: 400; line-height: 1.15;
+      color: var(--white); margin-bottom: 1rem;
+    }
+    .faq-hero-sub {
+      font-size: 0.9rem; color: rgba(255,255,255,0.55);
+      font-weight: 400; max-width: 520px; margin: 0 auto;
+      line-height: 1.75;
+    }
+
+    /* Main FAQ area */
+    .faq-body {
+      background: var(--cream);
+      padding: 5rem 4rem 6rem;
+    }
+    .faq-inner {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* Section group */
+    .faq-group {
+      margin-bottom: 3.5rem;
+    }
+    .faq-group-label {
+      font-size: 0.62rem; font-weight: 600;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(201,168,76,0.25);
+    }
+
+    /* Accordion item */
+    .faq-item {
+      border-bottom: 1px solid rgba(27,46,69,0.1);
+    }
+    .faq-item summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 2rem;
+      padding: 1.25rem 0;
+      cursor: pointer;
+      list-style: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--navy);
+      line-height: 1.35;
+      transition: color 0.18s;
+    }
+    .faq-item summary::-webkit-details-marker { display: none; }
+    .faq-item summary::after {
+      content: '+';
+      flex-shrink: 0;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 1.1rem; font-weight: 300;
+      color: var(--gold);
+      line-height: 1;
+      transition: transform 0.2s;
+    }
+    .faq-item[open] summary { color: var(--navy-deep); }
+    .faq-item[open] summary::after {
+      content: '−';
+    }
+    .faq-item summary:hover { color: var(--navy-deep); }
+
+    .faq-answer {
+      padding: 0 2rem 1.5rem 0;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.875rem;
+      line-height: 1.85;
+      color: var(--slate);
+      font-weight: 400;
+    }
+    .faq-answer p { margin-bottom: 0; }
+
+    /* Closing CTA */
+    .faq-cta {
+      background: var(--navy-deep);
+      padding: 6rem 4rem;
+      text-align: center;
+      border-top: 1px solid rgba(201,168,76,0.15);
+    }
+    .faq-cta h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      font-weight: 400;
+      color: var(--white);
+      margin-bottom: 1rem;
+    }
+    .faq-cta p {
+      font-size: 0.875rem;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.8;
+      max-width: 480px;
+      margin: 0 auto 2.5rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .faq-hero { padding: 8rem 1.5rem 4rem; }
+      .faq-hero::before { left: 1.5rem; right: 1.5rem; }
+      .faq-body { padding: 3.5rem 1.5rem 4rem; }
+      .faq-cta { padding: 4rem 1.5rem; }
+      .faq-item summary { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===================== NAVIGATION ===================== -->
+<nav>
+  <a href="/" class="nav-logo" style="text-decoration:none">The <span>Trust</span> Voice</a>
+  <ul class="nav-links">
+    <li><a href="/#how">How It Works</a></li>
+    <li><a href="/#difference">The Difference</a></li>
+    <li><a href="/#attorneys">For Advisors</a></li>
+    <li><a href="/faq" style="color:var(--gold)">FAQ</a></li>
+  </ul>
+  <div class="nav-actions">
+    <a href="https://portal.thetrustvoice.com" class="nav-cta">Login</a>
+    <a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="nav-cta">Schedule a Consultation</a>
+  </div>
+  <button class="nav-hamburger" aria-label="Open menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- Mobile nav menu -->
+<div class="mobile-menu" id="mobileMenu">
+  <ul>
+    <li><a href="/#how">How It Works</a></li>
+    <li><a href="/#difference">The Difference</a></li>
+    <li><a href="/#attorneys">For Advisors</a></li>
+    <li><a href="/faq">FAQ</a></li>
+    <li><a href="https://portal.thetrustvoice.com" class="mobile-cta">Login</a></li>
+    <li><a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="mobile-cta">Schedule a Consultation</a></li>
+  </ul>
+</div>
+
+<!-- ===================== HERO ===================== -->
+<div class="faq-hero">
+  <p class="faq-hero-eyebrow">Knowledge Base</p>
+  <h1>Frequently Asked Questions</h1>
+  <p class="faq-hero-sub">Everything you need to know about The Trust Voice</p>
+</div>
+
+<!-- ===================== FAQ BODY ===================== -->
+<div class="faq-body">
+  <div class="faq-inner">
+
+    <!-- Section 1: About the Service -->
+    <div class="faq-group">
+      <p class="faq-group-label">About the Service</p>
+
+      <details class="faq-item">
+        <summary>What exactly is The Trust Voice?</summary>
+        <div class="faq-answer"><p>The Trust Voice is a private legacy preservation service that captures a grantor's values, intentions, and guidance through a professionally recorded video interview — then makes that guidance available to trustees and family members for as long as the trust remains active. When a trustee submits a question, the system responds with a written answer drawn from the grantor's own words and displays the grantor's video paused at the exact moment they addressed that topic. It is a searchable, authenticated video archive of the grantor's intent.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How is this different from a letter of wishes?</summary>
+        <div class="faq-answer"><p>A traditional letter of wishes is a static document — fixed in time, unable to answer follow-up questions, and incapable of addressing scenarios that weren't anticipated when it was written. The Trust Voice is dynamic and queryable. A trustee facing a decision thirty years from now can ask a specific question and receive a response drawn directly from the grantor's recorded words, with the video playing at the exact moment it was spoken. The grantor is not interpreted — they speak for themselves.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is this a legal document?</summary>
+        <div class="faq-answer"><p>No. The Trust Voice is not a legal document and does not create, modify, or replace any trust, will, or other legal instrument. It is a preserved record of the grantor's intent and values — a resource for trustees and family members, not a binding legal directive. All trust administration decisions remain the sole responsibility of the trustee.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Does The Trust Voice replace my estate attorney or trust document?</summary>
+        <div class="faq-answer"><p>Not at all. The Trust Voice is designed to complement your existing legal structure, not replace it. Think of it as the human dimension behind the legal language — the grantor's voice explaining the reasoning, values, and intentions that no document can fully capture. We recommend clients discuss The Trust Voice with their estate attorney as part of a comprehensive estate plan.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is The Trust Voice an AI chatbot?</summary>
+        <div class="faq-answer"><p>Not in the way most people think of AI chatbots. The Trust Voice is best understood as a digital archive and retrieval system. The AI component serves one purpose: to find and surface the most relevant portions of the grantor's recorded interview in response to a question. Every response is anchored to a timestamped video clip of the grantor speaking. The system does not generate opinions, invent answers, or speculate. If the grantor never addressed a topic, the system says so.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How does the video citation work?</summary>
+        <div class="faq-answer"><p>When a trustee submits a question, the system identifies the most relevant moment in the grantor's recorded interview where that topic was addressed. Along with a written summary, the grantor's video appears on screen — paused at the precise timestamp. The trustee taps play and watches the grantor speak to that topic directly. There is no ambiguity about what was said or how it was meant.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Will the AI ever give advice that wasn't in the grantor's interview?</summary>
+        <div class="faq-answer"><p>No. The system is designed to respond only from the grantor's recorded content. If a topic was not addressed in the interview, the system will indicate that no relevant content was found rather than generating a response from elsewhere. The grantor's recorded words are the only source.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is my interview content used to train AI models?</summary>
+        <div class="faq-answer"><p>Never. Your interview content is stored in a private, isolated environment and is never used to train any AI model — ours or anyone else's. The AI component of our service uses your content solely to retrieve and surface your own words in response to queries. This is a fundamental commitment of The Trust Voice and is written into every client agreement.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How long has The Trust Voice been available?</summary>
+        <div class="faq-answer"><p>The Trust Voice is a new service built on proven, enterprise-grade technology. Our infrastructure runs on Amazon Web Services — the same platform trusted by major financial institutions — and our retrieval architecture has been purpose-built for the privacy and permanence demands of trust administration. We are selective about the clients we work with and maintain a close, personal relationship with each one.</p></div>
+      </details>
+    </div>
+
+    <!-- Section 2: Privacy and Security -->
+    <div class="faq-group">
+      <p class="faq-group-label">Privacy and Security</p>
+
+      <details class="faq-item">
+        <summary>Is my interview content private?</summary>
+        <div class="faq-answer"><p>Completely. Your video archive, transcripts, and all interview content are accessible only to the authorized users you designate — typically your trustee, successor trustees, and any named advisors you choose. No one else — including The Trust Voice team — has routine access to your content. We access client data only when required to perform maintenance or address a support request, and all such access is logged.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can other clients or users see my content?</summary>
+        <div class="faq-answer"><p>No. Each client's system is entirely isolated. Your data does not share any environment, index, or database layer with any other client. This is not a shared platform with access controls — it is a dedicated, siloed architecture built specifically for each client. Your content is invisible to every other user of the platform.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where is my data stored?</summary>
+        <div class="faq-answer"><p>Your video archive and all associated data are stored on Amazon Web Services infrastructure in geographically redundant data centers located in the United States. AWS maintains SOC 2 and ISO 27001 certifications and is among the most secure cloud platforms available. Your data is never stored outside the United States.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who can access the system?</summary>
+        <div class="faq-answer"><p>Only the individuals you authorize. You designate your trustees, successor trustees, and any other named parties at the time of setup. Access requires multi-factor authentication. You may add or remove authorized users at any time by notifying us in writing, and changes are made within five business days.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What happens if there is a security breach?</summary>
+        <div class="faq-answer"><p>In the event of a security incident affecting your data, we will notify you within 72 hours of discovery. We maintain security monitoring and audit logging on all access to client data. Our incident response plan includes immediate containment procedures and written communication to affected clients.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What happens to my data if The Trust Voice closes or is acquired?</summary>
+        <div class="faq-answer"><p>We maintain a documented Business Continuity Plan that commits to a minimum of 90 days written notice before any material business change, 60 days of continued portal access during any transition, and delivery of a fresh USB drive containing your complete archive at no charge. In the event of an acquisition, any successor company must assume all obligations under your client agreement before any data is transferred. Your archive will never simply disappear.</p></div>
+      </details>
+    </div>
+
+    <!-- Section 3: The Interview Session -->
+    <div class="faq-group">
+      <p class="faq-group-label">The Interview Session</p>
+
+      <details class="faq-item">
+        <summary>How long will the video session take?</summary>
+        <div class="faq-answer"><p>Sessions vary by tier and by the depth and pace of conversation. Most sessions run between four and seven hours of recorded content. We schedule a full day to ensure there is no pressure or rush — sessions are conducted entirely at the grantor's pace with breaks as needed. The goal is a natural, unhurried conversation, not a marathon.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Where does the interview take place?</summary>
+        <div class="faq-answer"><p>We come to you. Sessions are conducted at a location of your choosing — your home, your office, or another private setting where you are comfortable. For clients outside our local area, we coordinate with a qualified local videographer and our interview team travels to you. We are also developing a dedicated studio environment for clients who prefer to travel to us.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What should I wear?</summary>
+        <div class="faq-answer"><p>Wear what makes you feel like yourself — something you would be comfortable and confident wearing in a meaningful conversation with your family. Solid colors tend to read well on camera. Avoid busy patterns or very bright whites. Our makeup artist will be present to ensure you look your best under professional lighting, so there is no need to worry about camera-specific preparation.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who conducts the interview?</summary>
+        <div class="faq-answer"><p>Your session is led by a dedicated interview facilitator — a warm, experienced professional whose sole focus is making you comfortable and drawing out thoughtful, meaningful responses. Your interviewer is not the videographer, and is not the founder of The Trust Voice. This separation is intentional: it allows you to have a genuine conversation with someone focused entirely on you, while the technical aspects of the session are handled by others.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Who will be in the room during the interview?</summary>
+        <div class="faq-answer"><p>Typically your interview facilitator, your videographer, and a makeup artist for pre-session preparation. The founder of The Trust Voice may also be present, particularly for the first session, to ensure everything runs smoothly. All team members sign comprehensive confidentiality agreements before participating in any client session.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What topics will be covered?</summary>
+        <div class="faq-answer"><p>The interview follows a structured six-part curriculum covering your values and life philosophy, family dynamics and relationships, financial intentions and trust guidance, specific scenarios your trustees may face, forward-looking questions designed to address situations that cannot be anticipated today, and personal messages you may wish to leave for named family members. The curriculum is designed to surface the guidance that matters most — the reasoning and values behind your decisions, not just the decisions themselves.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do I need to prepare anything in advance?</summary>
+        <div class="faq-answer"><p>We will send you an Interview Preparation Guide in advance of your session — a list of the questions we will cover so you can reflect on them in your own time. There is no need to prepare formal answers or memorize anything. The most meaningful sessions are the ones where the grantor simply speaks from the heart. The preparation guide is there to help you arrive with your thoughts organized, not scripted.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I review and approve the content before it goes live?</summary>
+        <div class="faq-answer"><p>Yes. After your session, you will have the opportunity to test the system before the final balance payment is made. If there is content you would prefer to exclude, we can discuss that with you. Your satisfaction with the delivered system is built into our payment structure — the final payment is due only after you have tested the working agent to your satisfaction.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What if I want to update my answers in the future?</summary>
+        <div class="faq-answer"><p>Life changes, and your guidance can too. Update sessions are available to all clients. Legacy tier clients receive one complimentary update session available within the first three years. Comprehensive tier clients may schedule update sessions at an additional fee. An update session is a shorter, focused recording — typically one to two hours — that adds new content to your existing archive rather than replacing it.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What if I become emotional during the interview?</summary>
+        <div class="faq-answer"><p>That is completely natural — and in many cases it produces the most meaningful content. Your interview facilitator is experienced in guiding sensitive conversations with patience and warmth. There is no timeline pressure. We take breaks whenever you need them. If there are topics you prefer not to address, you are never required to go further than you are comfortable. This is your session, conducted entirely on your terms.</p></div>
+      </details>
+    </div>
+
+    <!-- Section 4: For Trustees and Beneficiaries -->
+    <div class="faq-group">
+      <p class="faq-group-label">For Trustees and Beneficiaries</p>
+
+      <details class="faq-item">
+        <summary>How does a trustee access the system?</summary>
+        <div class="faq-answer"><p>Authorized trustees receive a private login to the trustee portal at portal.thetrustvoice.com. Access requires multi-factor authentication. The portal is accessible from any device — computer, tablet, or phone — and is available at any time. Login credentials are delivered securely after the grantor's session is complete and the final payment has been received.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What kinds of questions can a trustee ask?</summary>
+        <div class="faq-answer"><p>Any question related to the grantor's values, intentions, or guidance for trust administration. Examples include questions about discretionary distributions, educational support, business ventures, family dynamics, how to handle unforeseen scenarios, and the grantor's broader philosophy about wealth and family. The system is most useful for the questions that arise between trustee meetings and legal consultations — the ones that require knowing who the grantor was, not just what the document says.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What if the system doesn't have an answer to a question?</summary>
+        <div class="faq-answer"><p>If a topic was not addressed in the grantor's interview, the system will indicate that no relevant content was found rather than generating a response. In that case, trustees should rely on the trust document, their fiduciary judgment, and the advice of legal counsel as they would in the absence of this service. The Trust Voice supplements trustee judgment — it does not replace it.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can beneficiaries use the system or only trustees?</summary>
+        <div class="faq-answer"><p>Access is entirely at the grantor's discretion. Most grantors designate their primary and successor trustees as authorized users. Some also choose to grant access to adult children, a family advisor, or their estate attorney. Beneficiaries may be granted access if the grantor chooses to include them. You decide who has access and that list can be updated at any time.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is there a limit to how many questions can be asked?</summary>
+        <div class="faq-answer"><p>No. There is no cap on the number of queries authorized users may submit. The monthly access fee covers unlimited queries throughout the life of the service. Trustees should feel free to consult the system as often as they find it useful.</p></div>
+      </details>
+    </div>
+
+    <!-- Section 5: Pricing and Process -->
+    <div class="faq-group">
+      <p class="faq-group-label">Pricing and Process</p>
+
+      <details class="faq-item">
+        <summary>How much does The Trust Voice cost?</summary>
+        <div class="faq-answer"><p>Our service is offered at two tiers, each with a one-time setup fee and a modest monthly access fee. We do not publish pricing publicly — the investment is structured based on the scope of your session and your family's specific needs. We are happy to walk you through the details in a private consultation. Please reach out to schedule a call.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Why is there a monthly fee?</summary>
+        <div class="faq-answer"><p>The monthly fee funds the ongoing infrastructure that keeps your archive secure, available, and up to date. This includes encrypted cloud storage, security monitoring, system maintenance, trustee support, and ongoing improvements to the retrieval technology. Your archive is not a one-time upload — it is a living system maintained on your behalf for as long as your trust is active. At less than the cost of a single fifteen-minute call with your estate attorney, the monthly fee is designed to be carried comfortably by the trust itself.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What is included in the setup fee?</summary>
+        <div class="faq-answer"><p>The setup fee covers everything required to deliver a complete, working system — the interview session with a professional facilitator, professional videography, a professional makeup artist, processing and construction of your private retrieval system, trustee portal setup and access configuration, and a branded USB drive containing your complete video archive. There are no hidden costs.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How long does it take from signing to having a working system?</summary>
+        <div class="faq-answer"><p>From the time your agreement is signed and your deposit received, we typically schedule your interview session within two to three weeks. After the session, processing and system construction typically takes five to seven business days. Most clients have a fully working system within thirty days of signing.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What payment methods are accepted?</summary>
+        <div class="faq-answer"><p>We accept ACH bank transfer, personal check, and major credit cards. For the setup fee — which is paid in two installments — most clients prefer ACH or check to avoid transaction fees on larger amounts.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What happens if I stop paying the monthly fee?</summary>
+        <div class="faq-answer"><p>If a monthly payment lapses, access to the portal is suspended until payment is received. Your data is not deleted. After sixty days of non-payment, we will attempt to contact you or your designated trustee. If we are unable to reach you, we will provide written notice before taking any further action. We understand that circumstances change and work with clients to find solutions before any data action is taken.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I cancel at any time?</summary>
+        <div class="faq-answer"><p>Yes. You may cancel with thirty days written notice at any time. Upon cancellation, your video archive remains accessible through the portal for thirty days so you can confirm you have your physical USB drive. After that period, your data is deleted from our systems and written confirmation is provided. The setup fee deposit is non-refundable once your interview session has been conducted, as it covers the cost of the session itself.</p></div>
+      </details>
+    </div>
+
+    <!-- Section 6: For Estate Professionals -->
+    <div class="faq-group">
+      <p class="faq-group-label">For Estate Professionals</p>
+
+      <details class="faq-item">
+        <summary>How does The Trust Voice work alongside the trust document?</summary>
+        <div class="faq-answer"><p>The trust document defines the legal structure — the rules, the distributions, the trustee powers. The Trust Voice captures the human dimension behind that structure — the grantor's reasoning, values, and guidance for the decisions the document cannot anticipate. They are complementary: the document tells trustees what they can do; The Trust Voice tells them what the grantor would have wanted them to do. Together they give trustees a far more complete picture than either alone.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can my estate attorney be given access to the system?</summary>
+        <div class="faq-answer"><p>Yes. With the grantor's authorization, we can provision portal access for their estate attorney, trust officer, or any other named advisor. Many clients choose to include their attorney as an authorized user from the outset. Access is provisioned at any time by written request from the grantor.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Is there a referral or introduction process for professionals?</summary>
+        <div class="faq-answer"><p>We welcome introductions from any professional who serves clients with significant estates — estate planning attorneys, wealth advisors, trust officers, CPAs, and family office professionals. We do not pay referral fees, and our pricing to clients is never affected by how they were introduced to us. If you believe a client would benefit from preserving their voice for future generations, we would welcome a private conversation. Please reach out to <a href="mailto:attorneys@thetrustvoice.com" style="color:var(--gold);text-decoration:none">attorneys@thetrustvoice.com</a>.</p></div>
+      </details>
+    </div>
+
+  </div><!-- /.faq-inner -->
+</div><!-- /.faq-body -->
+
+<!-- ===================== CLOSING CTA ===================== -->
+<div class="faq-cta">
+  <h2>Still have questions?</h2>
+  <p>If you didn't find what you were looking for, we are happy to answer any question directly. Reach out and we will respond within one business day.</p>
+  <a href="mailto:questions@thetrustvoice.com?subject=Question%20%E2%80%94%20The%20Trust%20Voice" class="btn-primary">Send Us a Question →</a>
+</div>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="footer-logo">The <span>Trust</span> Voice</div>
+  <div class="footer-right">
+    <span class="footer-note">&copy; 2026 The Trust Voice LLC &middot; South Carolina</span>
+    <a href="/privacy" class="footer-policy">Privacy Policy</a>
+  </div>
+</footer>
+
+<script src="js/main.js"></script>
+</body>
+</html>
