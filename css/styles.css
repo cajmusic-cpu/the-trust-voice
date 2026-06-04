@@ -399,40 +399,6 @@ section { padding: 7rem 4rem; }
 }
 .attorney-callout .callout-link:hover { background: var(--gold); color: var(--navy); }
 
-/* === PRICING === */
-.section-pricing { background: var(--white); }
-.pricing-header { max-width: 600px; margin: 0 auto 4rem; text-align: center; }
-.pricing-header .section-eyebrow { justify-content: center; }
-.pricing-header .section-eyebrow::before { display: none; }
-.pricing-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr);
-  gap: 0; border: 1px solid var(--stone); max-width: 1000px; margin: 0 auto;
-}
-.price-tier { padding: 3rem 2.5rem; border-right: 1px solid var(--stone); position: relative; }
-.price-tier:last-child { border-right: none; }
-.price-tier.featured { background: var(--navy); color: var(--white); }
-.tier-label { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.5rem; }
-.price-tier.featured .tier-label { color: var(--gold); }
-.tier-price { font-family: 'Cormorant Garamond', serif; font-size: 3.2rem; font-weight: 300; color: var(--navy); line-height: 1; margin-bottom: 0.25rem; }
-.price-tier.featured .tier-price { color: var(--white); }
-.tier-price-note { font-size: 0.72rem; color: var(--muted); margin-bottom: 2rem; font-weight: 400; }
-.price-tier.featured .tier-price-note { color: rgba(255,255,255,0.4); }
-.tier-monthly { font-size: 0.78rem; color: var(--slate); padding: 1rem 0; border-top: 1px solid var(--stone); border-bottom: 1px solid var(--stone); margin-bottom: 2rem; font-weight: 400; }
-.price-tier.featured .tier-monthly { color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.1); }
-.tier-includes { list-style: none; }
-.tier-includes li { font-size: 0.8rem; color: var(--slate); padding: 0.6rem 0; display: flex; gap: 0.75rem; align-items: flex-start; font-weight: 400; line-height: 1.5; }
-.price-tier.featured .tier-includes li { color: rgba(255,255,255,0.6); }
-.tier-includes li::before { content: ''; width: 12px; height: 12px; border: 1px solid var(--gold); flex-shrink: 0; margin-top: 3px; }
-.tier-includes li.highlight { font-weight: 500; }
-.price-tier.featured .tier-includes li.highlight { color: var(--gold-light); }
-.tier-includes li.highlight::before { background: var(--gold); }
-.featured-badge {
-  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
-  background: var(--gold); color: var(--navy);
-  font-size: 0.58rem; letter-spacing: 0.15em; text-transform: uppercase;
-  padding: 0.35rem 1.25rem; font-weight: 600; white-space: nowrap;
-}
-
 /* === CTA SECTION === */
 .section-cta { background: var(--navy-deep); text-align: center; padding: 8rem 4rem; position: relative; overflow: hidden; }
 .section-cta::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%); }
@@ -545,10 +511,6 @@ footer {
 
   .attorneys-inner { grid-template-columns: 1fr; gap: 3rem; }
   .attorney-callout { position: static; }
-
-  .pricing-grid { grid-template-columns: 1fr; }
-  .price-tier { border-right: none; border-bottom: 1px solid var(--stone); }
-  .price-tier:last-child { border-bottom: none; }
 
   .cta-actions { flex-direction: column; align-items: center; }
   .section-cta { padding: 5rem 1.5rem; }
