@@ -253,6 +253,12 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
     if (!ready) setReady(true);
   }
 
+  function handleCanPlay() {
+    // Fallback for large files where loadedmetadata fires but seeked doesn't complete
+    // before the browser considers the video playable.
+    if (!ready) setReady(true);
+  }
+
   function handleTimeUpdate() {
     const video = videoRef.current;
     if (video && video.currentTime >= endTimeRef.current) {
@@ -289,6 +295,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
             playsInline
             onLoadedMetadata={handleLoadedMetadata}
             onSeeked={handleSeeked}
+            onCanPlay={handleCanPlay}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             onTimeUpdate={handleTimeUpdate}
@@ -301,7 +308,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
           )}
           {!playing && (
             <button
-              className={`citation-play-overlay${ready ? ' citation-play-overlay--ready' : ''}`}
+              className="citation-play-overlay citation-play-overlay--ready"
               onClick={handlePlayClick}
               aria-label="Play clip"
             >
