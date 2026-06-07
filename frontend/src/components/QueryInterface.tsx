@@ -119,7 +119,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
                           {formatSpeaker(c.speaker)}
                         </span>
                       </div>
-                      <CitationVideo clientId={clientId} videoId={c.videoId} startTime={c.startTime} />
+                      <CitationVideo clientId={clientId} videoId={c.videoId} startTime={c.startTime} endTime={c.endTime} />
                       <blockquote className="citation-quote">"{c.quote}"</blockquote>
                     </div>
                   ))}
@@ -212,12 +212,26 @@ function formatSpeaker(label: string): string {
   return isNaN(n) ? label : `Speaker ${n + 1}`;
 }
 
-function CitationVideo({ clientId, videoId, startTime }: { clientId: string; videoId: string; startTime: number }) {
+function formatDuration(seconds: number): string {
+  const s = Math.round(seconds);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
+}
+
+function CitationVideo({ clientId, videoId, startTime, endTime }: {
+  clientId: string; videoId: string; startTime: number; endTime: number;
+}) {
   const [url, setUrl] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Stable ref so the timeupdate closure always reads the current endTime
+  // without needing to re-register the listener on every render.
+  const endTimeRef = useRef(endTime);
+  useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
 
   useEffect(() => {
     const cacheKey = `${clientId}/${videoId}`;
@@ -237,6 +251,23 @@ function CitationVideo({ clientId, videoId, startTime }: { clientId: string; vid
 
   function handleSeeked() {
     if (!ready) setReady(true);
+  }
+
+  function handleTimeUpdate() {
+    const video = videoRef.current;
+    if (video && video.currentTime >= endTimeRef.current) {
+      video.pause();
+    }
+  }
+
+  function handlePlayClick() {
+    const video = videoRef.current;
+    if (!video) return;
+    // If the clip ended, restart from startTime before playing again
+    if (video.currentTime >= endTimeRef.current) {
+      video.currentTime = startTime;
+    }
+    void video.play().catch(() => {});
   }
 
   if (loadError) return null;
@@ -260,13 +291,19 @@ function CitationVideo({ clientId, videoId, startTime }: { clientId: string; vid
             onSeeked={handleSeeked}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
+            onTimeUpdate={handleTimeUpdate}
             controls={playing}
           />
+          {ready && (
+            <div className="citation-clip-badge">
+              {formatTime(startTime)}–{formatTime(endTime)} · {formatDuration(endTime - startTime)} clip
+            </div>
+          )}
           {!playing && (
             <button
               className={`citation-play-overlay${ready ? ' citation-play-overlay--ready' : ''}`}
-              onClick={() => void videoRef.current?.play().catch(() => {})}
-              aria-label="Play video"
+              onClick={handlePlayClick}
+              aria-label="Play clip"
             >
               <svg className="citation-play-icon" viewBox="0 0 80 80" fill="none">
                 <circle cx="40" cy="40" r="40" fill="rgba(15,30,46,0.6)" />
