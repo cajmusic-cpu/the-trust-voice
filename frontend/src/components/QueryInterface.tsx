@@ -231,12 +231,9 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
   // Stable ref so the timeupdate closure always reads the current endTime
   // without needing to re-register the listener on every render.
   const endTimeRef = useRef(endTime);
+  const startTimeRef = useRef(startTime);
   useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
-
-  // Temporary: confirm prop values reaching CitationVideo
-  useEffect(() => {
-    console.log(`[CitationVideo] videoId=${videoId} startTime=${startTime} endTime=${endTime} endTimeRef.current=${endTimeRef.current}`);
-  }, [videoId, startTime, endTime]);
+  useEffect(() => { startTimeRef.current = startTime; }, [startTime]);
 
   useEffect(() => {
     const cacheKey = `${clientId}/${videoId}`;
@@ -266,38 +263,21 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
 
   function handleTimeUpdate() {
     const video = videoRef.current;
-    const end = endTimeRef.current;
     if (!video) return;
-    // Temporary: log near-end state to verify endTime and timeupdate firing
-    if (video.currentTime >= end - 3) {
-      console.log(`[CitationVideo] timeupdate near/at end — currentTime=${video.currentTime.toFixed(2)} endTimeRef=${end}`);
-    }
-    if (video.currentTime >= end) {
+    if (video.currentTime >= endTimeRef.current) {
       video.pause();
+      // Seek back to startTime while paused so the clip is ready for clean replay.
+      // Without this, currentTime stays at endTime, and the next play click
+      // would trigger an immediate seek-and-restart that looks like a loop.
+      video.currentTime = startTimeRef.current;
     }
   }
-
-  // Native DOM timeupdate listener as backup — media events occasionally miss
-  // React's synthetic dispatch during buffering transitions.
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const stop = () => {
-      const vid = videoRef.current;
-      const end = endTimeRef.current;
-      if (vid && vid.currentTime >= end) vid.pause();
-    };
-    video.addEventListener('timeupdate', stop);
-    return () => video.removeEventListener('timeupdate', stop);
-  }, [url]);
 
   function handlePlayClick() {
     const video = videoRef.current;
     if (!video) return;
-    // If the clip ended, restart from startTime before playing again
-    if (video.currentTime >= endTimeRef.current) {
-      video.currentTime = startTime;
-    }
+    // currentTime is always at startTime when clip is not playing (reset by
+    // handleTimeUpdate after clip ends, or set by handleLoadedMetadata on load).
     void video.play().catch(() => {});
   }
 
