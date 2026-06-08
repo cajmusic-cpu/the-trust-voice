@@ -73,6 +73,27 @@ async function processRecord(record: S3EventRecord): Promise<void> {
 
   await setStatus(clientId, videoId, 'PROCESSING');
 
+  // ── 2b. Determine subject speaker and per-chunk is_subject flag ───────────
+  // Subject = the speaker with the most total words across all chunks.
+  // is_subject = true when the subject's words are >= 30% of the chunk's words.
+  // This keeps chunks that mix an interviewer question with the subject's answer
+  // (the question provides context) while excluding chunks that are predominantly
+  // interviewer-only speech.
+  const globalSpeakerCounts: Record<string, number> = {};
+  for (const chunk of chunks) {
+    for (const [spk, count] of Object.entries(chunk.speakerCounts)) {
+      globalSpeakerCounts[spk] = (globalSpeakerCounts[spk] ?? 0) + count;
+    }
+  }
+  const subjectSpeaker = Object.entries(globalSpeakerCounts)
+    .sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+
+  const isSubjectChunk = (chunk: (typeof chunks)[number]): boolean => {
+    const total = Object.values(chunk.speakerCounts).reduce((s, n) => s + n, 0);
+    if (total === 0) return true;
+    return (chunk.speakerCounts[subjectSpeaker] ?? 0) / total >= 0.30;
+  };
+
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
   const embeddings = await embedTexts(chunks.map(c => c.text));
 
@@ -93,6 +114,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
             start_time: chunk.startTime,
             end_time: chunk.endTime,
             speaker: chunk.speaker,
+            is_subject: isSubjectChunk(chunk),
             text: chunk.text,
             pinecone_id: `${videoId}/${chunk.chunkIndex}`,
             created_at: now,
@@ -113,6 +135,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       start_time: chunk.startTime,
       end_time: chunk.endTime,
       speaker: chunk.speaker,
+      is_subject: isSubjectChunk(chunk),
       text: chunk.text,
       sentences_json: JSON.stringify(chunk.sentences),
     },
@@ -121,7 +144,10 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   await upsertChunks(clientId, vectors);
 
   // ── 6. Mark video as ready ────────────────────────────────────────────────
-  await setStatus(clientId, videoId, 'READY', { chunk_count: chunks.length });
+  await setStatus(clientId, videoId, 'READY', {
+    chunk_count: chunks.length,
+    subject_speaker: subjectSpeaker,
+  });
 
   console.log(`Finished: ${chunks.length} chunks indexed for video ${videoId}`);
 }
