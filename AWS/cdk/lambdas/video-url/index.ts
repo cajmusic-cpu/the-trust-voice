@@ -34,7 +34,8 @@ export const handler = withClientIsolation(
     if (!result.Item) return forbidden('Video not found');
 
     const status = result.Item['status'] as string | undefined;
-    if (status !== 'READY' && status !== 'TRANSCRIBING' && status !== 'PROCESSING') {
+    const PLAYABLE_STATUSES = ['READY', 'TRANSCRIBING', 'PROCESSING', 'EXTRACTING_AUDIO'];
+    if (!PLAYABLE_STATUSES.includes(status ?? '')) {
       return badRequest(`Video is not available (status: ${status ?? 'unknown'})`);
     }
 
