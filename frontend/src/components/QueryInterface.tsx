@@ -233,6 +233,11 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
   const endTimeRef = useRef(endTime);
   useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
 
+  // Temporary: confirm prop values reaching CitationVideo
+  useEffect(() => {
+    console.log(`[CitationVideo] videoId=${videoId} startTime=${startTime} endTime=${endTime} endTimeRef.current=${endTimeRef.current}`);
+  }, [videoId, startTime, endTime]);
+
   useEffect(() => {
     const cacheKey = `${clientId}/${videoId}`;
     const cached = videoUrlCache.get(cacheKey);
@@ -261,10 +266,30 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
 
   function handleTimeUpdate() {
     const video = videoRef.current;
-    if (video && video.currentTime >= endTimeRef.current) {
+    const end = endTimeRef.current;
+    if (!video) return;
+    // Temporary: log near-end state to verify endTime and timeupdate firing
+    if (video.currentTime >= end - 3) {
+      console.log(`[CitationVideo] timeupdate near/at end — currentTime=${video.currentTime.toFixed(2)} endTimeRef=${end}`);
+    }
+    if (video.currentTime >= end) {
       video.pause();
     }
   }
+
+  // Native DOM timeupdate listener as backup — media events occasionally miss
+  // React's synthetic dispatch during buffering transitions.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const stop = () => {
+      const vid = videoRef.current;
+      const end = endTimeRef.current;
+      if (vid && vid.currentTime >= end) vid.pause();
+    };
+    video.addEventListener('timeupdate', stop);
+    return () => video.removeEventListener('timeupdate', stop);
+  }, [url]);
 
   function handlePlayClick() {
     const video = videoRef.current;
