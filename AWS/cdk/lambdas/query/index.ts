@@ -109,7 +109,9 @@ export const handler = withClientIsolation(
       // Step 2: Retrieve the most relevant transcript chunks from Pinecone.
       // The namespace equals clientId — data isolation is enforced at both
       // the JWT layer (withClientIsolation) and the vector DB layer (namespace).
-      const matches = deduplicateMatches(await searchChunks(clientId, embedding, 3));
+      const matches = deduplicateMatches(
+        await searchChunks(clientId, embedding, 3, { is_subject: true }),
+      );
 
       if (matches.length === 0) {
         return ok({

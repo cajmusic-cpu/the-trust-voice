@@ -13,6 +13,7 @@ export interface ChunkMetadata extends RecordMetadata {
   start_time: number;  // seconds from video start
   end_time: number;
   speaker: string;
+  is_subject: boolean; // false when subject words < 30% of chunk — filters out interviewer-only chunks
   text: string;        // the transcript excerpt shown as a citation quote
   sentences_json: string;  // JSON-encoded [{startTime, text}] for sub-chunk seeking
 }
@@ -67,10 +68,12 @@ export async function upsertChunks(namespace: string, vectors: ChunkVector[]): P
 }
 
 // Searches the given namespace (= clientId) for the top-k most similar chunks.
+// Pass filter to narrow results by Pinecone metadata (e.g. { is_subject: true }).
 export async function searchChunks(
   namespace: string,
   embedding: number[],
   topK = 3,
+  filter?: Record<string, unknown>,
 ): Promise<ChunkMatch[]> {
   const index = await getIndex();
   const ns = index.namespace(namespace);
@@ -80,6 +83,7 @@ export async function searchChunks(
     topK,
     includeMetadata: true,
     includeValues: true,
+    ...(filter ? { filter } : {}),
   });
 
   return (res.matches ?? [])

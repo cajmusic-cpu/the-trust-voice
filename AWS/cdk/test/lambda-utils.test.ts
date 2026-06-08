@@ -165,6 +165,7 @@ function makeMatch(videoId: string, chunkIndex: number, text: string): ChunkMatc
       start_time: chunkIndex * 60,
       end_time: chunkIndex * 60 + 55,
       speaker: 'spk_0',
+      is_subject: true,
       text,
       sentences_json: '[]',
     },

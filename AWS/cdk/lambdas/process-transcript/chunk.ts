@@ -11,6 +11,7 @@ export interface Chunk {
   startTime: number;
   endTime: number;
   speaker: string;    // dominant speaker (most words in the chunk)
+  speakerCounts: Record<string, number>;  // word count per speaker label
   sentences: Sentence[];
 }
 
@@ -67,11 +68,11 @@ export function buildChunks(words: Word[]): Chunk[] {
     const text = slice.map(w => w.text).join(' ');
 
     // Dominant speaker = whichever speaker contributed the most words
-    const speakerCount: Record<string, number> = {};
+    const speakerCounts: Record<string, number> = {};
     for (const w of slice) {
-      speakerCount[w.speaker] = (speakerCount[w.speaker] ?? 0) + 1;
+      speakerCounts[w.speaker] = (speakerCounts[w.speaker] ?? 0) + 1;
     }
-    const speaker = Object.entries(speakerCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+    const speaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
 
     chunks.push({
       chunkIndex: chunks.length,
@@ -79,6 +80,7 @@ export function buildChunks(words: Word[]): Chunk[] {
       startTime: slice[0].startTime,
       endTime: slice[slice.length - 1].endTime,
       speaker,
+      speakerCounts,
       sentences: buildSentences(slice),
     });
 
