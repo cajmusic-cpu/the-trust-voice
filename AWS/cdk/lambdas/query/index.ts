@@ -1,4 +1,6 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { withClientIsolation, type IsolationContext } from '../shared/withClientIsolation';
 import { ok, badRequest, internalError } from '../shared/response';
 import { embedText } from '../shared/embed';
@@ -6,6 +8,9 @@ import { searchChunks, type ChunkMatch } from '../shared/pinecone';
 import { queryWithContext } from '../shared/claude';
 import { buildCitations } from '../shared/citations';
 import { logQuery } from './log';
+
+const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const CHUNKS_TABLE = process.env['CHUNKS_TABLE']!;
 
 interface QueryBody {
   question: string;
@@ -67,6 +72,24 @@ function bestSentenceTime(question: string, sentencesJson: string | undefined, f
   return best.startTime;
 }
 
+// Fetches the chunk immediately after the given chunkIndex for the same video.
+// Returns { end_time, text } if it exists, null if the matched chunk is the last one.
+async function fetchNextChunk(
+  clientId: string,
+  videoId: string,
+  chunkIndex: number,
+): Promise<{ end_time: number; text: string } | null> {
+  const sk = `VIDEO#${videoId}#CHUNK#${String(chunkIndex + 1).padStart(6, '0')}`;
+  const res = await ddb.send(new GetCommand({
+    TableName: CHUNKS_TABLE,
+    Key: { client_id: clientId, sk },
+    ProjectionExpression: 'end_time, #txt',
+    ExpressionAttributeNames: { '#txt': 'text' },
+  }));
+  if (!res.Item) return null;
+  return res.Item as { end_time: number; text: string };
+}
+
 function parseBody(event: APIGatewayProxyEvent): QueryBody | null {
   if (!event.body) return null;
   try {
@@ -122,8 +145,30 @@ export const handler = withClientIsolation(
         });
       }
 
-      // Step 3: Build context chunks for Claude (1-based index for citation matching)
-      const contextChunks = matches.map((m, i) => ({
+      // Step 3: Extend each match with the immediately following chunk.
+      // Combined text lets Claude synthesize complete answers that span a chunk
+      // boundary; combined endTime plays both as a single continuous video clip.
+      const mergedMatches: ChunkMatch[] = await Promise.all(
+        matches.map(async m => {
+          const next = await fetchNextChunk(
+            clientId,
+            m.metadata.video_id,
+            m.metadata.chunk_index,
+          );
+          if (!next) return m;
+          return {
+            ...m,
+            metadata: {
+              ...m.metadata,
+              end_time: next.end_time,
+              text: `${m.metadata.text} ${next.text}`,
+            },
+          };
+        }),
+      );
+
+      // Step 4: Build context chunks for Claude (1-based index for citation matching)
+      const contextChunks = mergedMatches.map((m, i) => ({
         index: i + 1,
         text: m.metadata.text,
         video_id: m.metadata.video_id,
@@ -132,12 +177,13 @@ export const handler = withClientIsolation(
         speaker: m.metadata.speaker,
       }));
 
-      // Step 4: Ask Claude — it cites excerpts as [1], [2], etc.
+      // Step 5: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 5: Refine each match's startTime to the most question-relevant sentence
-      // within the chunk, then map used citations back to structured objects.
-      const refinedMatches = matches.map(m => ({
+      // Step 6: Refine each match's startTime to the most question-relevant sentence
+      // within the first chunk (sentences_json covers the Pinecone match only),
+      // then map used citations back to structured objects.
+      const refinedMatches = mergedMatches.map(m => ({
         ...m,
         metadata: {
           ...m.metadata,

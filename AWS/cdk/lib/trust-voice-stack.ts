@@ -355,6 +355,7 @@ export class TrustVoiceStack extends cdk.Stack {
         PINECONE_INDEX_NAME: 'ttv-embeddings',
         PINECONE_INDEX_HOST: 'https://ttv-embeddings-he5dsra.svc.aped-4627-b74a.pinecone.io',
         QUERY_LOG_TABLE: queryLogTable.tableName,
+        CHUNKS_TABLE: this.chunksTable.tableName,
       },
       bundling: {
         minify: true,
