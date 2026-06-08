@@ -204,8 +204,8 @@ export class TrustVoiceStack extends cdk.Stack {
       roleName: 'ttv-mediaconvert-role',
       assumedBy: new iam.ServicePrincipal('mediaconvert.amazonaws.com'),
     });
-    for (const bucket of videoBuckets) bucket.grantRead(mediaConvertRole);
-    for (const bucket of transcriptBuckets) bucket.grantWrite(mediaConvertRole);
+    // MediaConvert reads the original video and writes audio.mp3 + optimized.mp4 back.
+    for (const bucket of videoBuckets) bucket.grantReadWrite(mediaConvertRole);
 
     this.ingestLambdaRole.addToPolicy(new iam.PolicyStatement({
       actions: [
@@ -447,6 +447,7 @@ export class TrustVoiceStack extends cdk.Stack {
       memorySize: 256,
       environment: {
         VIDEOS_TABLE: this.videosTable.tableName,
+        MEDIACONVERT_ROLE_ARN: mediaConvertRole.roleArn,
       },
       bundling: { minify: true, sourceMap: true, target: 'node22' },
     });
