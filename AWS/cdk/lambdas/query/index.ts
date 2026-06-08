@@ -12,6 +12,22 @@ import { logQuery } from './log';
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const CHUNKS_TABLE = process.env['CHUNKS_TABLE']!;
 
+// Two chunks with embedding cosine similarity above this are considered the same
+// topic; the lower-scoring one is dropped. 0.92 is intentionally strict — with
+// large speaker-turn chunks (2–5 min) two different topics can score 0.85–0.90,
+// so a loose threshold would discard legitimately distinct citations.
+const COSINE_DEDUP_THRESHOLD = 0.92;
+
+// Only extend a match with the following chunk when confidence meets this bar.
+// Below it, returning a short concise clip is better than padding with adjacent
+// content that may not be relevant to the question.
+const EXTENSION_SCORE_THRESHOLD = 0.75;
+
+// Clip overlap (in seconds) above which two citations from the same video are
+// considered duplicates after extension. Extension grows end_time, so adjacent
+// chunks returned by Pinecone can produce heavily overlapping clips.
+const TIME_OVERLAP_SECONDS = 30;
+
 interface QueryBody {
   question: string;
 }
@@ -35,15 +51,33 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-// Removes chunks whose embedding is more than `threshold` similar to an
-// already-kept chunk. Matches arrive score-descending, so the first occurrence
+// Removes chunks whose embedding is more than COSINE_DEDUP_THRESHOLD similar to
+// an already-kept chunk. Matches arrive score-descending, so the first occurrence
 // of a near-duplicate topic is always the highest-scoring one.
-function deduplicateMatches(matches: ChunkMatch[], threshold = 0.85): ChunkMatch[] {
+function deduplicateMatches(matches: ChunkMatch[], threshold = COSINE_DEDUP_THRESHOLD): ChunkMatch[] {
   const kept: ChunkMatch[] = [];
   for (const match of matches) {
     const isDuplicate = match.values.length > 0 &&
       kept.some(k => k.values.length > 0 && cosineSimilarity(k.values, match.values) > threshold);
     if (!isDuplicate) kept.push(match);
+  }
+  return kept;
+}
+
+// Removes lower-scoring matches whose clip overlaps an already-kept match by
+// more than TIME_OVERLAP_SECONDS on the same video. Run this after extension so
+// the grown end_times are reflected in the overlap calculation. Matches are
+// score-descending so the first occurrence of an overlapping region is kept.
+function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
+  const kept: ChunkMatch[] = [];
+  for (const match of matches) {
+    const overlaps = kept.some(k => {
+      if (k.metadata.video_id !== match.metadata.video_id) return false;
+      const overlapStart = Math.max(k.metadata.start_time, match.metadata.start_time);
+      const overlapEnd = Math.min(k.metadata.end_time, match.metadata.end_time);
+      return overlapEnd - overlapStart > TIME_OVERLAP_SECONDS;
+    });
+    if (!overlaps) kept.push(match);
   }
   return kept;
 }
@@ -145,11 +179,14 @@ export const handler = withClientIsolation(
         });
       }
 
-      // Step 3: Extend each match with the immediately following chunk.
-      // Combined text lets Claude synthesize complete answers that span a chunk
-      // boundary; combined endTime plays both as a single continuous video clip.
-      const mergedMatches: ChunkMatch[] = await Promise.all(
+      // Step 3: Extend each high-confidence match with the immediately following
+      // chunk. Combined text lets Claude synthesize complete answers that span a
+      // chunk boundary; combined endTime plays both as a single continuous clip.
+      // Low-confidence matches (score < EXTENSION_SCORE_THRESHOLD) are returned
+      // as-is — padding a weak match with adjacent content adds noise.
+      const extendedMatches: ChunkMatch[] = await Promise.all(
         matches.map(async m => {
+          if (m.score < EXTENSION_SCORE_THRESHOLD) return m;
           const next = await fetchNextChunk(
             clientId,
             m.metadata.video_id,
@@ -167,7 +204,13 @@ export const handler = withClientIsolation(
         }),
       );
 
-      // Step 4: Build context chunks for Claude (1-based index for citation matching)
+      // Step 4: Remove clips that heavily overlap in time. Extension grows
+      // end_time, so two adjacent chunks returned by Pinecone can produce clips
+      // that overlap by hundreds of seconds — a second citation with >30 s of
+      // shared video content adds no new information.
+      const mergedMatches = removeTimeOverlaps(extendedMatches);
+
+      // Step 5: Build context chunks for Claude (1-based index for citation matching)
       const contextChunks = mergedMatches.map((m, i) => ({
         index: i + 1,
         text: m.metadata.text,
@@ -177,10 +220,10 @@ export const handler = withClientIsolation(
         speaker: m.metadata.speaker,
       }));
 
-      // Step 5: Ask Claude — it cites excerpts as [1], [2], etc.
+      // Step 6: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 6: Refine each match's startTime to the most question-relevant sentence
+      // Step 7: Refine each match's startTime to the most question-relevant sentence
       // within the first chunk (sentences_json covers the Pinecone match only),
       // then map used citations back to structured objects.
       const refinedMatches = mergedMatches.map(m => ({
