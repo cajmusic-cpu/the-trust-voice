@@ -10,13 +10,51 @@ export interface Chunk {
   text: string;
   startTime: number;
   endTime: number;
-  speaker: string;    // dominant speaker (most words in the chunk)
+  speaker: string;
   speakerCounts: Record<string, number>;  // word count per speaker label
   sentences: Sentence[];
 }
 
-// ~70s at conversational pace (~130 wpm); large enough to cover a full Q&A answer.
-const MAX_WORDS = 150;
+// A chunk must reach this duration before a speaker change can trigger a split.
+export const MIN_CHUNK_SECONDS = 30;
+
+// Hard ceiling — no chunk will ever exceed this, even if one speaker holds
+// the floor continuously. Prevents runaway chunks on long monologues.
+export const MAX_CHUNK_SECONDS = 300;
+
+// A new-speaker turn shorter than this is treated as a brief interjection
+// (an "uh-huh", a short follow-up, a clarifying question) and is absorbed
+// into the current chunk rather than starting a new one.
+export const INTERJECTION_SECONDS = 20;
+
+// A consecutive run of words from the same speaker.
+interface SpeakerTurn {
+  speaker: string;
+  words: Word[];
+  startTime: number;
+  endTime: number;
+  duration: number;   // endTime - startTime (seconds)
+}
+
+// Groups consecutive same-speaker words into turns.
+function buildSpeakerTurns(words: Word[]): SpeakerTurn[] {
+  const turns: SpeakerTurn[] = [];
+  let i = 0;
+  while (i < words.length) {
+    const speaker = words[i].speaker;
+    const start = i;
+    while (i < words.length && words[i].speaker === speaker) i++;
+    const slice = words.slice(start, i);
+    turns.push({
+      speaker,
+      words: slice,
+      startTime: slice[0].startTime,
+      endTime: slice[slice.length - 1].endTime,
+      duration: slice[slice.length - 1].endTime - slice[0].startTime,
+    });
+  }
+  return turns;
+}
 
 // Groups words into sentences by terminal punctuation (.?!).
 // Requires at least 5 words before cutting to avoid splitting on abbreviations.
@@ -39,53 +77,86 @@ function buildSentences(words: Word[]): Sentence[] {
   return sentences;
 }
 
-// Splits a word list into Chunks of at most MAX_WORDS words.
+// Splits a transcript word list into Chunks based on speaker turns.
 //
-// Speaker-boundary cuts: if the speaker changes and we're already past the
-// halfway point of a chunk, we cut early. This keeps excerpts to a single
-// voice where possible, producing cleaner citation quotes.
+// Chunking rules (all conditions must hold to start a new chunk):
+//   1. The incoming turn's speaker differs from the current chunk's dominant speaker
+//   2. The current chunk has already reached MIN_CHUNK_SECONDS
+//   3. The incoming turn is at least INTERJECTION_SECONDS long
+//      (shorter turns are treated as brief interjections and absorbed)
+//
+// MAX_CHUNK_SECONDS is a hard ceiling: if adding a turn would push the chunk
+// past that limit, the current chunk is flushed first regardless of the above.
+//
+// Timestamps come directly from the Transcribe word-level output — startTime
+// is the first word's start, endTime is the last word's end.
 export function buildChunks(words: Word[]): Chunk[] {
   if (words.length === 0) return [];
 
+  const turns = buildSpeakerTurns(words);
   const chunks: Chunk[] = [];
-  let start = 0;
+  let pending: SpeakerTurn[] = [];
 
-  while (start < words.length) {
-    let end = Math.min(start + MAX_WORDS, words.length);
-
-    // Look for a speaker change after the halfway mark and cut there
-    if (end < words.length) {
-      const halfway = start + Math.floor(MAX_WORDS / 2);
-      for (let i = halfway; i < end; i++) {
-        if (words[i].speaker !== words[start].speaker) {
-          end = i;
-          break;
-        }
-      }
-    }
-
-    const slice = words.slice(start, end);
-    const text = slice.map(w => w.text).join(' ');
-
-    // Dominant speaker = whichever speaker contributed the most words
+  function flush(): void {
+    if (pending.length === 0) return;
+    const allWords = pending.flatMap(t => t.words);
     const speakerCounts: Record<string, number> = {};
-    for (const w of slice) {
-      speakerCounts[w.speaker] = (speakerCounts[w.speaker] ?? 0) + 1;
+    for (const t of pending) {
+      speakerCounts[t.speaker] = (speakerCounts[t.speaker] ?? 0) + t.words.length;
     }
-    const speaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
-
+    const speaker = Object.entries(speakerCounts)
+      .sort((a, b) => b[1] - a[1])[0]![0];
     chunks.push({
       chunkIndex: chunks.length,
-      text,
-      startTime: slice[0].startTime,
-      endTime: slice[slice.length - 1].endTime,
+      text: allWords.map(w => w.text).join(' '),
+      startTime: pending[0].startTime,
+      endTime: pending[pending.length - 1].endTime,
       speaker,
       speakerCounts,
-      sentences: buildSentences(slice),
+      sentences: buildSentences(allWords),
     });
-
-    start = end;
+    pending = [];
   }
 
+  for (const turn of turns) {
+    if (pending.length === 0) {
+      pending.push(turn);
+      continue;
+    }
+
+    const chunkStart = pending[0].startTime;
+
+    // Hard ceiling: flush and start fresh before this turn would push us over max.
+    if (turn.endTime - chunkStart >= MAX_CHUNK_SECONDS) {
+      flush();
+      pending.push(turn);
+      continue;
+    }
+
+    // Dominant speaker = whoever has accumulated the most time in the current chunk.
+    const spkSeconds: Record<string, number> = {};
+    for (const t of pending) {
+      spkSeconds[t.speaker] = (spkSeconds[t.speaker] ?? 0) + t.duration;
+    }
+    const dominant = Object.entries(spkSeconds)
+      .sort((a, b) => b[1] - a[1])[0]![0];
+
+    if (turn.speaker === dominant || turn.duration < INTERJECTION_SECONDS) {
+      // Dominant speaker resumes (possibly after an interjection), or the
+      // incoming turn is a brief interjection — keep it in the current chunk.
+      pending.push(turn);
+      continue;
+    }
+
+    // Non-dominant speaker is starting a substantial turn.
+    // Only split if the current chunk has reached the minimum duration.
+    const currentDuration = pending[pending.length - 1].endTime - chunkStart;
+    if (currentDuration >= MIN_CHUNK_SECONDS) {
+      flush();
+    }
+    pending.push(turn);
+  }
+
+  flush();
   return chunks;
 }

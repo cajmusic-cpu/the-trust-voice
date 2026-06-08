@@ -1,5 +1,5 @@
 import { parseTranscript } from '../lambdas/process-transcript/parseTranscript';
-import { buildChunks } from '../lambdas/process-transcript/chunk';
+import { buildChunks, MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS, INTERJECTION_SECONDS } from '../lambdas/process-transcript/chunk';
 import { buildCitations } from '../lambdas/shared/citations';
 import type { ChunkMatch } from '../lambdas/shared/pinecone';
 
@@ -91,14 +91,24 @@ describe('parseTranscript', () => {
 });
 
 // ── buildChunks ────────────────────────────────────────────────────────────
-
-function makeWords(count: number, speaker = 'spk_0') {
-  return Array.from({ length: count }, (_, i) => ({
-    text: `word${i}`,
-    startTime: i * 0.5,
-    endTime: i * 0.5 + 0.4,
-    speaker,
-  }));
+//
+// Builds words with continuous timestamps across multiple speaker segments.
+// Each word is 0.5s apart (0.4s spoken + 0.1s gap).
+// Turn duration for a turn of n words = (n-1)*0.5 + 0.4 seconds.
+//
+// Useful thresholds given the timing constants:
+//   MIN_CHUNK_SECONDS (30s) requires >= 62 words in a turn to clear it
+//   INTERJECTION_SECONDS (20s) is exceeded by turns of >= 41 words
+//   MAX_CHUNK_SECONDS (300s) is exceeded at 601+ words total
+function makeWordSeq(...segments: Array<[number, string]>) {
+  const words: Array<{ text: string; startTime: number; endTime: number; speaker: string }> = [];
+  for (const [count, speaker] of segments) {
+    for (let i = 0; i < count; i++) {
+      const t = words.length * 0.5;
+      words.push({ text: `word${words.length}`, startTime: t, endTime: t + 0.4, speaker });
+    }
+  }
+  return words;
 }
 
 describe('buildChunks', () => {
@@ -106,8 +116,8 @@ describe('buildChunks', () => {
     expect(buildChunks([])).toEqual([]);
   });
 
-  test('single chunk when word count is below MAX_WORDS', () => {
-    const words = makeWords(10);
+  test('single speaker produces one chunk with correct timestamps', () => {
+    const words = makeWordSeq([10, 'spk_0']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(1);
     expect(chunks[0].chunkIndex).toBe(0);
@@ -116,40 +126,67 @@ describe('buildChunks', () => {
     expect(chunks[0].endTime).toBe(words[9].endTime);
   });
 
-  test('splits into multiple chunks when word count exceeds MAX_WORDS (150)', () => {
-    const words = makeWords(200);
+  test('speaker change with long turn splits after MIN_CHUNK_SECONDS', () => {
+    // spk_0 for 65 words (~32s > MIN=30s), spk_1 for 45 words (~22s > INTERJECTION=20s)
+    // → meets all three split conditions: speaker changed, chunk >= 30s, turn >= 20s
+    const words = makeWordSeq([65, 'spk_0'], [45, 'spk_1']);
     const chunks = buildChunks(words);
-    expect(chunks.length).toBeGreaterThan(1);
-    const totalWords = chunks.reduce((sum, c) => sum + c.text.split(' ').length, 0);
-    expect(totalWords).toBe(200);
-  });
-
-  test('assigns sequential chunkIndex values', () => {
-    const chunks = buildChunks(makeWords(250));
-    chunks.forEach((c, i) => expect(c.chunkIndex).toBe(i));
-  });
-
-  test('cuts early at speaker boundary after halfway mark', () => {
-    // MAX_WORDS=150, halfway=75. Need total > 150 so end < words.length fires.
-    // spk_0: words 0-79 (80 words), spk_1: words 80-159 (80 words).
-    // halfway=75; loop finds speaker change at index 80 → chunk ends at 80.
-    const words = [
-      ...makeWords(80, 'spk_0'),
-      ...makeWords(80, 'spk_1'),
-    ];
-    const chunks = buildChunks(words);
-    expect(chunks[0].text.split(' ')).toHaveLength(80);
+    expect(chunks).toHaveLength(2);
     expect(chunks[0].speaker).toBe('spk_0');
     expect(chunks[1].speaker).toBe('spk_1');
   });
 
-  test('dominant speaker is the one with most words in chunk', () => {
-    const words = [
-      ...makeWords(3, 'spk_0'),
-      ...makeWords(7, 'spk_1'), // spk_1 is dominant
-    ];
+  test('assigns sequential chunkIndex values', () => {
+    const words = makeWordSeq([65, 'spk_0'], [65, 'spk_1']);
     const chunks = buildChunks(words);
+    chunks.forEach((c, i) => expect(c.chunkIndex).toBe(i));
+  });
+
+  test('brief interjection (< INTERJECTION_SECONDS) stays in same chunk', () => {
+    // spk_0 long → spk_1 brief (30 words = 14.9s < INTERJECTION=20s) → spk_0 long
+    // The brief spk_1 turn and the spk_0 resumption are both absorbed.
+    const words = makeWordSeq([65, 'spk_0'], [30, 'spk_1'], [65, 'spk_0']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].speaker).toBe('spk_0');
+  });
+
+  test('speaker change before MIN_CHUNK_SECONDS does not split', () => {
+    // spk_0 for 40 words (~20s < MIN=30s), then spk_1 for 65 words (~32s)
+    // spk_1 turn would normally trigger a split but the current chunk is too short
+    const words = makeWordSeq([40, 'spk_0'], [65, 'spk_1']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(1);
+  });
+
+  test('MAX_CHUNK_SECONDS hard ceiling forces a new chunk', () => {
+    // 601 words same speaker (300.4s > MAX=300s), then 10 words different speaker.
+    // When the second turn arrives, turn.endTime - chunkStart > 300s → flush first.
+    const words = makeWordSeq([601, 'spk_0'], [10, 'spk_1']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].speaker).toBe('spk_0');
+    expect(chunks[0].endTime - chunks[0].startTime).toBeLessThan(MAX_CHUNK_SECONDS + 1);
+  });
+
+  test('dominant speaker is the one with most words in the chunk', () => {
+    // 5 words spk_0, 10 words spk_1 — both too short to split, spk_1 dominates
+    const words = makeWordSeq([5, 'spk_0'], [10, 'spk_1']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(1);
     expect(chunks[0].speaker).toBe('spk_1');
+  });
+
+  test('speakerCounts reflects word counts per speaker in chunk', () => {
+    const words = makeWordSeq([5, 'spk_0'], [10, 'spk_1']);
+    const chunks = buildChunks(words);
+    expect(chunks[0].speakerCounts['spk_0']).toBe(5);
+    expect(chunks[0].speakerCounts['spk_1']).toBe(10);
+  });
+
+  test('unused MIN_CHUNK_SECONDS and INTERJECTION_SECONDS exports are defined', () => {
+    expect(typeof MIN_CHUNK_SECONDS).toBe('number');
+    expect(typeof INTERJECTION_SECONDS).toBe('number');
   });
 });
 
