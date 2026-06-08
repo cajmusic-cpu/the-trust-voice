@@ -9,6 +9,6 @@ export interface ClientConfig {
 export const CLIENTS: ClientConfig[] = [
   { id: 'a32775e1-4edd-4740-bc22-84a453839487', name: 'Test Client' },
   { id: '5fbc7625-d566-4ec5-93f4-b82f52ad17bc', name: 'Robert Caldwell' },
-  // { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Smith Family' },
-  // { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Johnson Family' },
+  { id: 'a5be0dd6-14b9-4a47-a5bf-7440bdc7eb85', name: 'Wyatt Dixon Demo' },
+  { id: 'c64e37b9-ca34-439b-8a03-c4de24b2b327', name: 'Wyatt Dixon' },
 ];
