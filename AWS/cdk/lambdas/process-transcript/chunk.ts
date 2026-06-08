@@ -14,8 +14,8 @@ export interface Chunk {
   sentences: Sentence[];
 }
 
-// ~35s at conversational pace; small enough that startTime is meaningful.
-const MAX_WORDS = 80;
+// ~70s at conversational pace (~130 wpm); large enough to cover a full Q&A answer.
+const MAX_WORDS = 150;
 
 // Groups words into sentences by terminal punctuation (.?!).
 // Requires at least 5 words before cutting to avoid splitting on abbreviations.
