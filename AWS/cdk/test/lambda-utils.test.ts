@@ -116,12 +116,12 @@ describe('buildChunks', () => {
     expect(chunks[0].endTime).toBe(words[9].endTime);
   });
 
-  test('splits into multiple chunks when word count exceeds MAX_WORDS (80)', () => {
-    const words = makeWords(90);
+  test('splits into multiple chunks when word count exceeds MAX_WORDS (150)', () => {
+    const words = makeWords(200);
     const chunks = buildChunks(words);
     expect(chunks.length).toBeGreaterThan(1);
     const totalWords = chunks.reduce((sum, c) => sum + c.text.split(' ').length, 0);
-    expect(totalWords).toBe(90);
+    expect(totalWords).toBe(200);
   });
 
   test('assigns sequential chunkIndex values', () => {
@@ -130,15 +130,15 @@ describe('buildChunks', () => {
   });
 
   test('cuts early at speaker boundary after halfway mark', () => {
-    // MAX_WORDS=80, halfway=40. Need total > 80 so end < words.length fires.
-    // spk_0: words 0-49 (50 words), spk_1: words 50-99 (50 words).
-    // halfway=40; loop finds speaker change at index 50 → chunk ends at 50.
+    // MAX_WORDS=150, halfway=75. Need total > 150 so end < words.length fires.
+    // spk_0: words 0-79 (80 words), spk_1: words 80-159 (80 words).
+    // halfway=75; loop finds speaker change at index 80 → chunk ends at 80.
     const words = [
-      ...makeWords(50, 'spk_0'),
-      ...makeWords(50, 'spk_1'),
+      ...makeWords(80, 'spk_0'),
+      ...makeWords(80, 'spk_1'),
     ];
     const chunks = buildChunks(words);
-    expect(chunks[0].text.split(' ')).toHaveLength(50);
+    expect(chunks[0].text.split(' ')).toHaveLength(80);
     expect(chunks[0].speaker).toBe('spk_0');
     expect(chunks[1].speaker).toBe('spk_1');
   });
