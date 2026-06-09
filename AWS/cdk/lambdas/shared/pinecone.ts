@@ -67,6 +67,25 @@ export async function upsertChunks(namespace: string, vectors: ChunkVector[]): P
   }
 }
 
+// Fetches stored vectors by ID from the client's namespace.
+// Returns a map of id → values for any IDs that exist in Pinecone.
+// Used to score adjacent chunks against the query embedding without a full search.
+export async function fetchVectors(
+  namespace: string,
+  ids: string[],
+): Promise<Record<string, number[]>> {
+  if (ids.length === 0) return {};
+  const index = await getIndex();
+  const ns = index.namespace(namespace);
+  const result = await ns.fetch(ids);
+  const out: Record<string, number[]> = {};
+  for (const [id, record] of Object.entries(result.records ?? {})) {
+    const vals = record.values;
+    if (vals && vals.length > 0) out[id] = vals;
+  }
+  return out;
+}
+
 // Searches the given namespace (= clientId) for the top-k most similar chunks.
 // Pass filter to narrow results by Pinecone metadata (e.g. { is_subject: true }).
 export async function searchChunks(

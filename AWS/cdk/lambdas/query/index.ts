@@ -4,7 +4,7 @@ import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { withClientIsolation, type IsolationContext } from '../shared/withClientIsolation';
 import { ok, badRequest, internalError } from '../shared/response';
 import { embedText } from '../shared/embed';
-import { searchChunks, type ChunkMatch } from '../shared/pinecone';
+import { searchChunks, fetchVectors, type ChunkMatch } from '../shared/pinecone';
 import { queryWithContext } from '../shared/claude';
 import { buildCitations } from '../shared/citations';
 import { logQuery } from './log';
@@ -36,6 +36,11 @@ const SECOND_CITATION_THRESHOLD = 0.95;
 // Hard cap on citations per query. Keeping this at 1 until a second interview
 // is available — a single accurate citation is better than two where one is wrong.
 const MAX_CITATIONS = 1;
+
+// Adjacent chunk is only appended when its own embedding scores at or above
+// this threshold against the query. Prevents irrelevant follow-on content
+// (e.g. a topic change after a subject finishes answering) from being tacked on.
+const ADJACENT_CHUNK_THRESHOLD = 0.70;
 
 interface QueryBody {
   question: string;
@@ -113,6 +118,26 @@ function bestSentenceTime(question: string, sentencesJson: string | undefined, f
   }
 
   return best.startTime;
+}
+
+// Slices the displayed transcript text so it begins at the sentence matching
+// startTime (as refined by bestSentenceTime). When bestSentenceTime moves startTime
+// into the middle of a chunk, the earlier sentences are dropped from the quote.
+// The extension suffix (text appended from the adjacent chunk) is preserved intact.
+function trimTextToStartTime(sentencesJson: string | undefined, startTime: number, fullText: string): string {
+  if (!sentencesJson) return fullText;
+  let sentences: SentenceMarker[];
+  try { sentences = JSON.parse(sentencesJson) as SentenceMarker[]; }
+  catch { return fullText; }
+  const idx = sentences.findIndex(s => s.startTime === startTime);
+  if (idx <= 0) return fullText;
+  const fromSentence = sentences.slice(idx).map(s => s.text).join(' ');
+  const originalText = sentences.map(s => s.text).join(' ');
+  if (fullText.length > originalText.length) {
+    const extension = fullText.slice(originalText.length).trim();
+    return extension ? `${fromSentence} ${extension}` : fromSentence;
+  }
+  return fromSentence;
 }
 
 // Fetches the chunk immediately after the given chunkIndex for the same video.
@@ -196,12 +221,15 @@ export const handler = withClientIsolation(
       const extendedMatches: ChunkMatch[] = await Promise.all(
         matches.map(async m => {
           if (m.score < EXTENSION_SCORE_THRESHOLD) return m;
-          const next = await fetchNextChunk(
-            clientId,
-            m.metadata.video_id,
-            m.metadata.chunk_index,
-          );
+          const nextId = `${m.metadata.video_id}/${m.metadata.chunk_index + 1}`;
+          const [next, adjacentVectors] = await Promise.all([
+            fetchNextChunk(clientId, m.metadata.video_id, m.metadata.chunk_index),
+            fetchVectors(clientId, [nextId]),
+          ]);
           if (!next) return m;
+          const adjacentVec = adjacentVectors[nextId];
+          const adjacentScore = adjacentVec ? cosineSimilarity(embedding, adjacentVec) : 0;
+          if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
           return {
             ...m,
             metadata: {
@@ -243,13 +271,17 @@ export const handler = withClientIsolation(
       // Step 8: Refine each match's startTime to the most question-relevant sentence
       // within the first chunk (sentences_json covers the Pinecone match only),
       // then map used citations back to structured objects.
-      const refinedMatches = mergedMatches.map(m => ({
-        ...m,
-        metadata: {
-          ...m.metadata,
-          start_time: bestSentenceTime(question, m.metadata.sentences_json, m.metadata.start_time),
-        },
-      }));
+      const refinedMatches = mergedMatches.map(m => {
+        const newStartTime = bestSentenceTime(question, m.metadata.sentences_json, m.metadata.start_time);
+        return {
+          ...m,
+          metadata: {
+            ...m.metadata,
+            start_time: newStartTime,
+            text: trimTextToStartTime(m.metadata.sentences_json, newStartTime, m.metadata.text),
+          },
+        };
+      });
       const citations = buildCitations(refinedMatches, usedCitationIndices);
 
       void logQuery({ clientId, userEmail, question, citationCount: citations.length })
