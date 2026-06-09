@@ -15,17 +15,26 @@ export interface Chunk {
   sentences: Sentence[];
 }
 
-// A chunk must reach this duration before a speaker change can trigger a split.
-export const MIN_CHUNK_SECONDS = 30;
+// A chunk must reach this duration before a substantial non-dominant turn
+// can trigger a split. Kept low (15s) so that an interviewer question of
+// 15–20 s forms its own chunk rather than being prepended to the subject's
+// next answer. Does not apply when TOPIC_BREAK_SECONDS has been reached.
+export const MIN_CHUNK_SECONDS = 15;
 
 // Hard ceiling — no chunk will ever exceed this, even if one speaker holds
 // the floor continuously. Prevents runaway chunks on long monologues.
 export const MAX_CHUNK_SECONDS = 300;
 
 // A new-speaker turn shorter than this is treated as a brief interjection
-// (an "uh-huh", a short follow-up, a clarifying question) and is absorbed
-// into the current chunk rather than starting a new one.
+// (an "uh-huh", a short follow-up) and is absorbed into the current chunk.
+// Does NOT apply once the chunk has reached TOPIC_BREAK_SECONDS.
 export const INTERJECTION_SECONDS = 20;
+
+// Once the dominant speaker has held the floor for this long, any speaker
+// change — even a brief one below INTERJECTION_SECONDS — forces an
+// immediate chunk boundary. Prevents an interviewer's next question (often
+// 8–15 s) from being absorbed into the tail of a long subject answer.
+export const TOPIC_BREAK_SECONDS = 60;
 
 // A consecutive run of words from the same speaker.
 interface SpeakerTurn {
@@ -79,14 +88,12 @@ function buildSentences(words: Word[]): Sentence[] {
 
 // Splits a transcript word list into Chunks based on speaker turns.
 //
-// Chunking rules (all conditions must hold to start a new chunk):
-//   1. The incoming turn's speaker differs from the current chunk's dominant speaker
-//   2. The current chunk has already reached MIN_CHUNK_SECONDS
-//   3. The incoming turn is at least INTERJECTION_SECONDS long
-//      (shorter turns are treated as brief interjections and absorbed)
+// Split conditions for a non-dominant speaker turn:
+//   • TOPIC_BREAK_SECONDS reached — flush immediately regardless of turn length
+//   • turn >= INTERJECTION_SECONDS AND chunk >= MIN_CHUNK_SECONDS — standard split
+//   • turn < INTERJECTION_SECONDS AND chunk < TOPIC_BREAK_SECONDS — absorb (interjection)
 //
-// MAX_CHUNK_SECONDS is a hard ceiling: if adding a turn would push the chunk
-// past that limit, the current chunk is flushed first regardless of the above.
+// MAX_CHUNK_SECONDS is a hard ceiling flushed before applying any other rule.
 //
 // Timestamps come directly from the Transcribe word-level output — startTime
 // is the first word's start, endTime is the last word's end.
@@ -125,6 +132,7 @@ export function buildChunks(words: Word[]): Chunk[] {
     }
 
     const chunkStart = pending[0].startTime;
+    const currentDuration = pending[pending.length - 1].endTime - chunkStart;
 
     // Hard ceiling: flush and start fresh before this turn would push us over max.
     if (turn.endTime - chunkStart >= MAX_CHUNK_SECONDS) {
@@ -141,16 +149,28 @@ export function buildChunks(words: Word[]): Chunk[] {
     const dominant = Object.entries(spkSeconds)
       .sort((a, b) => b[1] - a[1])[0]![0];
 
-    if (turn.speaker === dominant || turn.duration < INTERJECTION_SECONDS) {
-      // Dominant speaker resumes (possibly after an interjection), or the
-      // incoming turn is a brief interjection — keep it in the current chunk.
+    if (turn.speaker === dominant) {
+      // Dominant speaker resumes (possibly after an absorbed interjection).
       pending.push(turn);
       continue;
     }
 
-    // Non-dominant speaker is starting a substantial turn.
-    // Only split if the current chunk has reached the minimum duration.
-    const currentDuration = pending[pending.length - 1].endTime - chunkStart;
+    // Topic boundary: once the dominant speaker has held the floor for
+    // TOPIC_BREAK_SECONDS, any speaker change — even a brief question
+    // that would otherwise be absorbed — forces a chunk boundary.
+    if (currentDuration >= TOPIC_BREAK_SECONDS) {
+      flush();
+      pending.push(turn);
+      continue;
+    }
+
+    // Brief interjection on a shorter chunk: absorb it.
+    if (turn.duration < INTERJECTION_SECONDS) {
+      pending.push(turn);
+      continue;
+    }
+
+    // Substantial non-dominant turn: flush if minimum duration reached.
     if (currentDuration >= MIN_CHUNK_SECONDS) {
       flush();
     }
