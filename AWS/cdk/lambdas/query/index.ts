@@ -28,6 +28,15 @@ const EXTENSION_SCORE_THRESHOLD = 0.75;
 // chunks returned by Pinecone can produce heavily overlapping clips.
 const TIME_OVERLAP_SECONDS = 30;
 
+// The first citation is always returned if any match exists. Additional
+// citations are only included when their Pinecone score meets this bar —
+// a low threshold produces thematically related but topically wrong results.
+const SECOND_CITATION_THRESHOLD = 0.95;
+
+// Hard cap on citations per query. Keeping this at 1 until a second interview
+// is available — a single accurate citation is better than two where one is wrong.
+const MAX_CITATIONS = 1;
+
 interface QueryBody {
   question: string;
 }
@@ -208,9 +217,17 @@ export const handler = withClientIsolation(
       // end_time, so two adjacent chunks returned by Pinecone can produce clips
       // that overlap by hundreds of seconds — a second citation with >30 s of
       // shared video content adds no new information.
-      const mergedMatches = removeTimeOverlaps(extendedMatches);
+      const deduped = removeTimeOverlaps(extendedMatches);
 
-      // Step 5: Build context chunks for Claude (1-based index for citation matching)
+      // Step 5: Apply per-citation score gate and hard cap.
+      // The top match is always included. Any additional match must score at or
+      // above SECOND_CITATION_THRESHOLD — below that the retrieval is surfacing
+      // thematically similar but topically different content.
+      const mergedMatches = deduped
+        .filter((m, i) => i === 0 || m.score >= SECOND_CITATION_THRESHOLD)
+        .slice(0, MAX_CITATIONS);
+
+      // Step 6: Build context chunks for Claude (1-based index for citation matching)
       const contextChunks = mergedMatches.map((m, i) => ({
         index: i + 1,
         text: m.metadata.text,
@@ -220,10 +237,10 @@ export const handler = withClientIsolation(
         speaker: m.metadata.speaker,
       }));
 
-      // Step 6: Ask Claude — it cites excerpts as [1], [2], etc.
+      // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 7: Refine each match's startTime to the most question-relevant sentence
+      // Step 8: Refine each match's startTime to the most question-relevant sentence
       // within the first chunk (sentences_json covers the Pinecone match only),
       // then map used citations back to structured objects.
       const refinedMatches = mergedMatches.map(m => ({
