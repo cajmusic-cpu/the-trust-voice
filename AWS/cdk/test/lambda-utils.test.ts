@@ -1,5 +1,5 @@
 import { parseTranscript } from '../lambdas/process-transcript/parseTranscript';
-import { buildChunks, MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS, INTERJECTION_SECONDS } from '../lambdas/process-transcript/chunk';
+import { buildChunks, MIN_CHUNK_SECONDS, MAX_CHUNK_SECONDS, INTERJECTION_SECONDS, TOPIC_BREAK_SECONDS } from '../lambdas/process-transcript/chunk';
 import { buildCitations } from '../lambdas/shared/citations';
 import type { ChunkMatch } from '../lambdas/shared/pinecone';
 
@@ -97,8 +97,9 @@ describe('parseTranscript', () => {
 // Turn duration for a turn of n words = (n-1)*0.5 + 0.4 seconds.
 //
 // Useful thresholds given the timing constants:
-//   MIN_CHUNK_SECONDS (30s) requires >= 62 words in a turn to clear it
+//   MIN_CHUNK_SECONDS (15s) requires >= 31 words in a turn to clear it
 //   INTERJECTION_SECONDS (20s) is exceeded by turns of >= 41 words
+//   TOPIC_BREAK_SECONDS (60s) is reached at >= 121 words in a single turn
 //   MAX_CHUNK_SECONDS (300s) is exceeded at 601+ words total
 function makeWordSeq(...segments: Array<[number, string]>) {
   const words: Array<{ text: string; startTime: number; endTime: number; speaker: string }> = [];
@@ -127,8 +128,8 @@ describe('buildChunks', () => {
   });
 
   test('speaker change with long turn splits after MIN_CHUNK_SECONDS', () => {
-    // spk_0 for 65 words (~32s > MIN=30s), spk_1 for 45 words (~22s > INTERJECTION=20s)
-    // → meets all three split conditions: speaker changed, chunk >= 30s, turn >= 20s
+    // spk_0 for 65 words (~32s > MIN=15s), spk_1 for 45 words (~22s > INTERJECTION=20s)
+    // → meets all split conditions: speaker changed, chunk >= 15s, turn >= 20s
     const words = makeWordSeq([65, 'spk_0'], [45, 'spk_1']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(2);
@@ -152,9 +153,9 @@ describe('buildChunks', () => {
   });
 
   test('speaker change before MIN_CHUNK_SECONDS does not split', () => {
-    // spk_0 for 40 words (~20s < MIN=30s), then spk_1 for 65 words (~32s)
+    // spk_0 for 30 words (~14.9s < MIN=15s), then spk_1 for 65 words (~32s)
     // spk_1 turn would normally trigger a split but the current chunk is too short
-    const words = makeWordSeq([40, 'spk_0'], [65, 'spk_1']);
+    const words = makeWordSeq([30, 'spk_0'], [65, 'spk_1']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(1);
   });
@@ -184,9 +185,34 @@ describe('buildChunks', () => {
     expect(chunks[0].speakerCounts['spk_1']).toBe(10);
   });
 
-  test('unused MIN_CHUNK_SECONDS and INTERJECTION_SECONDS exports are defined', () => {
+  test('timing constant exports are defined', () => {
     expect(typeof MIN_CHUNK_SECONDS).toBe('number');
     expect(typeof INTERJECTION_SECONDS).toBe('number');
+    expect(typeof TOPIC_BREAK_SECONDS).toBe('number');
+  });
+
+  test('TOPIC_BREAK_SECONDS forces cut on any speaker change after long answer', () => {
+    // spk_0 for 125 words (~62.4s >= TOPIC_BREAK=60s), then spk_1 for 30 words
+    // (~14.9s < INTERJECTION=20s). Without TOPIC_BREAK the brief turn is absorbed;
+    // with TOPIC_BREAK it forces an immediate flush.
+    const words = makeWordSeq([125, 'spk_0'], [30, 'spk_1']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].speaker).toBe('spk_0');
+    expect(chunks[1].speaker).toBe('spk_1');
+  });
+
+  test('interviewer turn >= MIN_CHUNK_SECONDS forms own chunk before subject resumes', () => {
+    // spk_0 long answer (125w, 62.4s) → flushed at TOPIC_BREAK when spk_1 starts
+    // spk_1 question (35w, 17.4s >= MIN=15s) → flushed when spk_0 returns
+    // spk_0 next answer (50w) → third chunk
+    // Ensures interviewer content never bleeds into either adjacent subject answer.
+    const words = makeWordSeq([125, 'spk_0'], [35, 'spk_1'], [50, 'spk_0']);
+    const chunks = buildChunks(words);
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0].speaker).toBe('spk_0');
+    expect(chunks[1].speaker).toBe('spk_1');
+    expect(chunks[2].speaker).toBe('spk_0');
   });
 });
 
