@@ -99,14 +99,18 @@ async function processRecord(record: S3EventRecord): Promise<void> {
 
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
   // For subject chunks that are immediately preceded by a non-subject turn,
-  // prepend the interviewer question text to the embedding input. This gives the
-  // vector awareness of the surrounding question so that a query like "message to
-  // grandchildren" can match even when the subject's answer never uses those words.
+  // prepend the last sentence of that question to the embedding input. Using only
+  // the last sentence (typically the actual question) rather than the full turn
+  // gives a targeted vocabulary hint without letting the question's phrasing
+  // dominate the embedding and overpower the subject's answer content.
   // The stored text and sentences_json remain subject-only — only the vector differs.
   const embedInputs = chunks.map((chunk, i) => {
     if (!isSubject[i]) return chunk.text;
     const prev = i > 0 ? chunks[i - 1] : null;
-    if (prev && !isSubject[i - 1]) return `${prev.text} ${chunk.text}`;
+    if (prev && !isSubject[i - 1]) {
+      const lastSentence = prev.sentences[prev.sentences.length - 1]?.text ?? '';
+      return lastSentence ? `${lastSentence} ${chunk.text}` : chunk.text;
+    }
     return chunk.text;
   });
   const embeddings = await embedTexts(embedInputs);
