@@ -94,8 +94,22 @@ async function processRecord(record: S3EventRecord): Promise<void> {
     return (chunk.speakerCounts[subjectSpeaker] ?? 0) / total >= 0.30;
   };
 
+  // Precompute once — isSubjectChunk is called in steps 3, 4, and 5.
+  const isSubject = chunks.map(isSubjectChunk);
+
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
-  const embeddings = await embedTexts(chunks.map(c => c.text));
+  // For subject chunks that are immediately preceded by a non-subject turn,
+  // prepend the interviewer question text to the embedding input. This gives the
+  // vector awareness of the surrounding question so that a query like "message to
+  // grandchildren" can match even when the subject's answer never uses those words.
+  // The stored text and sentences_json remain subject-only — only the vector differs.
+  const embedInputs = chunks.map((chunk, i) => {
+    if (!isSubject[i]) return chunk.text;
+    const prev = i > 0 ? chunks[i - 1] : null;
+    if (prev && !isSubject[i - 1]) return `${prev.text} ${chunk.text}`;
+    return chunk.text;
+  });
+  const embeddings = await embedTexts(embedInputs);
 
   // ── 4. Write chunk records to DynamoDB (concurrent) ──────────────────────
   // Sort key format: VIDEO#<videoId>#CHUNK#<zero-padded index>
@@ -114,7 +128,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
             start_time: chunk.startTime,
             end_time: chunk.endTime,
             speaker: chunk.speaker,
-            is_subject: isSubjectChunk(chunk),
+            is_subject: isSubject[i],
             text: chunk.text,
             pinecone_id: `${videoId}/${chunk.chunkIndex}`,
             created_at: now,
@@ -135,7 +149,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       start_time: chunk.startTime,
       end_time: chunk.endTime,
       speaker: chunk.speaker,
-      is_subject: isSubjectChunk(chunk),
+      is_subject: isSubject[i],
       text: chunk.text,
       sentences_json: JSON.stringify(chunk.sentences),
     },
