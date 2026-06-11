@@ -99,17 +99,20 @@ async function processRecord(record: S3EventRecord): Promise<void> {
 
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
   // For subject chunks that are immediately preceded by a non-subject turn,
-  // prepend the last sentence of that question to the embedding input. Using only
-  // the last sentence (typically the actual question) rather than the full turn
-  // gives a targeted vocabulary hint without letting the question's phrasing
-  // dominate the embedding and overpower the subject's answer content.
+  // prepend the most informative sentence from that question turn. We select the
+  // longest sentence ending with '?' — that is reliably the substantive question
+  // rather than a short clarifying follow-up (e.g. "What conditions would matter?").
+  // Falls back to the last sentence when no '?' sentence exists.
   // The stored text and sentences_json remain subject-only — only the vector differs.
   const embedInputs = chunks.map((chunk, i) => {
     if (!isSubject[i]) return chunk.text;
     const prev = i > 0 ? chunks[i - 1] : null;
     if (prev && !isSubject[i - 1]) {
-      const lastSentence = prev.sentences[prev.sentences.length - 1]?.text ?? '';
-      return lastSentence ? `${lastSentence} ${chunk.text}` : chunk.text;
+      const questionSentence = prev.sentences
+        .filter(s => s.text.endsWith('?'))
+        .sort((a, b) => b.text.length - a.text.length)[0];
+      const context = (questionSentence ?? prev.sentences[prev.sentences.length - 1])?.text ?? '';
+      return context ? `${context} ${chunk.text}` : chunk.text;
     }
     return chunk.text;
   });
