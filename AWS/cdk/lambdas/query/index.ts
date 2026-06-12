@@ -3,8 +3,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { withClientIsolation, type IsolationContext } from '../shared/withClientIsolation';
 import { ok, badRequest, internalError } from '../shared/response';
-import { embedText } from '../shared/embed';
-import { searchChunks, fetchVectors, type ChunkMatch } from '../shared/pinecone';
+import { embedText, embedTexts } from '../shared/embed';
+import { searchChunks, type ChunkMatch } from '../shared/pinecone';
 import { queryWithContext } from '../shared/claude';
 import { buildCitations } from '../shared/citations';
 import { logQuery } from './log';
@@ -17,11 +17,6 @@ const CHUNKS_TABLE = process.env['CHUNKS_TABLE']!;
 // large speaker-turn chunks (2–5 min) two different topics can score 0.85–0.90,
 // so a loose threshold would discard legitimately distinct citations.
 const COSINE_DEDUP_THRESHOLD = 0.92;
-
-// Only extend a match with the following chunk when confidence meets this bar.
-// Below it, returning a short concise clip is better than padding with adjacent
-// content that may not be relevant to the question.
-const EXTENSION_SCORE_THRESHOLD = 0.75;
 
 // Clip overlap (in seconds) above which two citations from the same video are
 // considered duplicates after extension. Extension grows end_time, so adjacent
@@ -37,10 +32,17 @@ const SECOND_CITATION_THRESHOLD = 0.95;
 // is available — a single accurate citation is better than two where one is wrong.
 const MAX_CITATIONS = 1;
 
-// Adjacent chunk is only appended when its own embedding scores at or above
-// this threshold against the query. Prevents irrelevant follow-on content
-// (e.g. a topic change after a subject finishes answering) from being tacked on.
+// Adjacent chunk is only appended when its opening sentences embed at or above
+// this threshold against the query. Scoring only the opening segment (not the
+// full chunk) avoids dilution from unrelated content later in a multi-topic chunk —
+// a chunk whose first half continues the answer but second half shifts topic will
+// score low on the full-chunk vector but high on the opening-segment vector.
 const ADJACENT_CHUNK_THRESHOLD = 0.70;
+
+// Number of sentences to extract from the adjacent chunk when scoring its relevance.
+// Five sentences captures enough context to judge whether the chunk opens on the
+// same topic without being pulled off-target by later content.
+const ADJACENT_SENTENCE_COUNT = 5;
 
 interface QueryBody {
   question: string;
@@ -157,12 +159,17 @@ function trimCitationBoundaries(
   const idx = sentences.findIndex(s => s.startTime === startTime);
   const fromIdx = idx <= 0 ? 0 : idx;
 
-  // Search for the first topic-break question strictly after the start sentence.
-  // Starting at fromIdx + 1 ensures we never truncate at the very first sentence
-  // even if it ends with '?' (e.g. an absorbed interviewer opener).
+  // Search for the first pair of consecutive '?' sentences after the start sentence.
+  // Two consecutive questions reliably signals an interviewer turn (main question +
+  // follow-up); a single isolated '?' is typically a rhetorical device in the
+  // subject's own speech and should not trigger truncation.
+  // Starting at fromIdx + 1 ensures the very first sentence never truncates the clip.
   let questionIdx = -1;
-  for (let i = fromIdx + 1; i < sentences.length; i++) {
-    if (sentences[i].text.trimEnd().endsWith('?')) {
+  for (let i = fromIdx + 1; i < sentences.length - 1; i++) {
+    if (
+      sentences[i].text.trimEnd().endsWith('?') &&
+      sentences[i + 1].text.trimEnd().endsWith('?')
+    ) {
       questionIdx = i;
       break;
     }
@@ -184,21 +191,23 @@ function trimCitationBoundaries(
 }
 
 // Fetches the chunk immediately after the given chunkIndex for the same video.
-// Returns { end_time, text } if it exists, null if the matched chunk is the last one.
+// Returns { end_time, text, sentences_json } if it exists, null if the matched
+// chunk is the last one. sentences_json is used to score the opening segment and
+// to merge sentence boundaries when extension fires.
 async function fetchNextChunk(
   clientId: string,
   videoId: string,
   chunkIndex: number,
-): Promise<{ end_time: number; text: string } | null> {
+): Promise<{ end_time: number; text: string; sentences_json?: string } | null> {
   const sk = `VIDEO#${videoId}#CHUNK#${String(chunkIndex + 1).padStart(6, '0')}`;
   const res = await ddb.send(new GetCommand({
     TableName: CHUNKS_TABLE,
     Key: { client_id: clientId, sk },
-    ProjectionExpression: 'end_time, #txt',
+    ProjectionExpression: 'end_time, #txt, sentences_json',
     ExpressionAttributeNames: { '#txt': 'text' },
   }));
   if (!res.Item) return null;
-  return res.Item as { end_time: number; text: string };
+  return res.Item as { end_time: number; text: string; sentences_json?: string };
 }
 
 function parseBody(event: APIGatewayProxyEvent): QueryBody | null {
@@ -256,33 +265,74 @@ export const handler = withClientIsolation(
         });
       }
 
-      // Step 3: Extend each high-confidence match with the immediately following
-      // chunk. Combined text lets Claude synthesize complete answers that span a
-      // chunk boundary; combined endTime plays both as a single continuous clip.
-      // Low-confidence matches (score < EXTENSION_SCORE_THRESHOLD) are returned
-      // as-is — padding a weak match with adjacent content adds noise.
-      const extendedMatches: ChunkMatch[] = await Promise.all(
-        matches.map(async m => {
-          if (m.score < EXTENSION_SCORE_THRESHOLD) return m;
-          const nextId = `${m.metadata.video_id}/${m.metadata.chunk_index + 1}`;
-          const [next, adjacentVectors] = await Promise.all([
-            fetchNextChunk(clientId, m.metadata.video_id, m.metadata.chunk_index),
-            fetchVectors(clientId, [nextId]),
-          ]);
-          if (!next) return m;
-          const adjacentVec = adjacentVectors[nextId];
-          const adjacentScore = adjacentVec ? cosineSimilarity(embedding, adjacentVec) : 0;
-          if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
-          return {
-            ...m,
-            metadata: {
-              ...m.metadata,
-              end_time: next.end_time,
-              text: `${m.metadata.text} ${next.text}`,
-            },
-          };
-        }),
+      // Step 3: Extend each match with the immediately following chunk when its
+      // opening sentences are topically continuous with the query.
+      //
+      // Scoring only the first ADJACENT_SENTENCE_COUNT sentences (not the full
+      // stored vector) prevents dilution when an adjacent chunk spans multiple
+      // topics — a chunk whose first half continues the answer but second half
+      // shifts topic scores low on its full vector but high on its opening segment.
+      //
+      // When extension fires, both chunks' sentences_json arrays are merged so
+      // trimCitationBoundaries can detect topic-break questions anywhere across
+      // the combined clip and stop the video before unrelated content begins.
+
+      // Phase A: fetch all adjacent chunks in parallel.
+      const nextChunks = await Promise.all(
+        matches.map(m => fetchNextChunk(clientId, m.metadata.video_id, m.metadata.chunk_index)),
       );
+
+      // Phase B: extract first-N-sentence segment text from each adjacent chunk.
+      const adjacentSegments = nextChunks.map(next => {
+        if (!next?.sentences_json) return null;
+        try {
+          const sents = JSON.parse(next.sentences_json) as SentenceMarker[];
+          const text = sents.slice(0, ADJACENT_SENTENCE_COUNT).map(s => s.text).join(' ');
+          return text || null;
+        } catch {
+          return null;
+        }
+      });
+
+      // Phase C: batch-embed all non-null segments (one Bedrock call sequence).
+      const toEmbedIdxs: number[] = [];
+      const toEmbedTexts: string[] = [];
+      adjacentSegments.forEach((seg, i) => {
+        if (seg) { toEmbedIdxs.push(i); toEmbedTexts.push(seg); }
+      });
+      const segEmbeddings = toEmbedTexts.length > 0 ? await embedTexts(toEmbedTexts) : [];
+      const adjacentEmbedMap = new Map<number, number[]>();
+      toEmbedIdxs.forEach((idx, pos) => adjacentEmbedMap.set(idx, segEmbeddings[pos]));
+
+      // Phase D: score each opening segment and extend when threshold met.
+      const extendedMatches: ChunkMatch[] = matches.map((m, i) => {
+        const next = nextChunks[i];
+        if (!next) return m;
+        const adjVec = adjacentEmbedMap.get(i);
+        const adjacentScore = adjVec ? cosineSimilarity(embedding, adjVec) : 0;
+        if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
+
+        // Merge sentences_json so trimCitationBoundaries can find topic-break
+        // questions in the adjacent chunk and clip the video there.
+        let mergedSentencesJson = m.metadata.sentences_json;
+        if (m.metadata.sentences_json && next.sentences_json) {
+          try {
+            const a = JSON.parse(m.metadata.sentences_json) as SentenceMarker[];
+            const b = JSON.parse(next.sentences_json) as SentenceMarker[];
+            mergedSentencesJson = JSON.stringify([...a, ...b]);
+          } catch { /* keep primary sentences_json */ }
+        }
+
+        return {
+          ...m,
+          metadata: {
+            ...m.metadata,
+            end_time: next.end_time,
+            text: `${m.metadata.text} ${next.text}`,
+            sentences_json: mergedSentencesJson,
+          },
+        };
+      });
 
       // Step 4: Remove clips that heavily overlap in time. Extension grows
       // end_time, so two adjacent chunks returned by Pinecone can produce clips
