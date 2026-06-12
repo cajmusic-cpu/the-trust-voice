@@ -106,18 +106,28 @@ function bestSentenceTime(question: string, sentencesJson: string | undefined, f
   }
   if (sentences.length <= 1) return fallback;
 
+  // 5+ char words only: eliminates common 4-char noise words ("that", "with",
+  // "what") that appear in nearly every sentence and inflate scores artificially.
   const qWords = new Set(
-    question.toLowerCase().split(/\W+/).filter(w => w.length > 3),
+    question.toLowerCase().split(/\W+/).filter(w => w.length > 4),
   );
 
-  let best = sentences[0];
-  let bestScore = 0;
+  // Count distinct qWords present in each sentence (Set intersection), not total
+  // occurrences. A word repeated twice in a sentence is one keyword match, not two.
+  // Skip interviewer question sentences (ending '?') — they contain the same keywords
+  // as the query but point to the wrong speaker and wrong temporal region.
+  // Require 2+ distinct keyword matches (bestScore starts at 1) before overriding
+  // the fallback — a single-keyword match is unreliable as a position signal.
+  let best: SentenceMarker | null = null;
+  let bestScore = 1;
   for (const s of sentences) {
-    const score = s.text.toLowerCase().split(/\W+/).filter(w => qWords.has(w)).length;
+    if (s.text.trimEnd().endsWith('?')) continue;
+    const sentenceWords = new Set(s.text.toLowerCase().split(/\W+/));
+    const score = [...qWords].filter(w => sentenceWords.has(w)).length;
     if (score > bestScore) { bestScore = score; best = s; }
   }
 
-  return best.startTime;
+  return best !== null ? best.startTime : fallback;
 }
 
 // Slices the displayed transcript text so it begins at the sentence matching
