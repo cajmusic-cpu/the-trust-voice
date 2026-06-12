@@ -130,24 +130,57 @@ function bestSentenceTime(question: string, sentencesJson: string | undefined, f
   return best !== null ? best.startTime : fallback;
 }
 
-// Slices the displayed transcript text so it begins at the sentence matching
-// startTime (as refined by bestSentenceTime). When bestSentenceTime moves startTime
-// into the middle of a chunk, the earlier sentences are dropped from the quote.
-// The extension suffix (text appended from the adjacent chunk) is preserved intact.
-function trimTextToStartTime(sentencesJson: string | undefined, startTime: number, fullText: string): string {
-  if (!sentencesJson) return fullText;
+// Trims the displayed text and video boundaries to the relevant answer window.
+//
+// Start: drops sentences before startTime (as refined by bestSentenceTime).
+// End: scans forward from the start sentence and truncates at the first interviewer
+// question (sentence ending '?') found after it. A question mid-chunk marks a topic
+// shift; content from there on belongs to a different answer. The extension suffix
+// (text appended from an adjacent chunk at query time) is preserved only when no
+// intra-chunk topic break is found — if a question was found the natural endpoint is
+// already within the chunk and there is no reason to play into the adjacent content.
+//
+// Returns { text, endTime } — endTime may be shorter than originalEndTime when a
+// topic-break question is detected within sentences_json.
+function trimCitationBoundaries(
+  sentencesJson: string | undefined,
+  startTime: number,
+  originalEndTime: number,
+  fullText: string,
+): { text: string; endTime: number } {
+  if (!sentencesJson) return { text: fullText, endTime: originalEndTime };
   let sentences: SentenceMarker[];
   try { sentences = JSON.parse(sentencesJson) as SentenceMarker[]; }
-  catch { return fullText; }
+  catch { return { text: fullText, endTime: originalEndTime }; }
+
+  // idx === -1 (not found) or idx === 0 (chunk start) both map to fromIdx = 0.
   const idx = sentences.findIndex(s => s.startTime === startTime);
-  if (idx <= 0) return fullText;
-  const fromSentence = sentences.slice(idx).map(s => s.text).join(' ');
-  const originalText = sentences.map(s => s.text).join(' ');
-  if (fullText.length > originalText.length) {
-    const extension = fullText.slice(originalText.length).trim();
-    return extension ? `${fromSentence} ${extension}` : fromSentence;
+  const fromIdx = idx <= 0 ? 0 : idx;
+
+  // Search for the first topic-break question strictly after the start sentence.
+  // Starting at fromIdx + 1 ensures we never truncate at the very first sentence
+  // even if it ends with '?' (e.g. an absorbed interviewer opener).
+  let questionIdx = -1;
+  for (let i = fromIdx + 1; i < sentences.length; i++) {
+    if (sentences[i].text.trimEnd().endsWith('?')) {
+      questionIdx = i;
+      break;
+    }
   }
-  return fromSentence;
+
+  const toIdx = questionIdx !== -1 ? questionIdx : sentences.length;
+  const newEndTime = questionIdx !== -1 ? sentences[questionIdx].startTime : originalEndTime;
+  const trimmedText = sentences.slice(fromIdx, toIdx).map(s => s.text).join(' ');
+
+  if (questionIdx === -1) {
+    const originalText = sentences.map(s => s.text).join(' ');
+    if (fullText.length > originalText.length) {
+      const extension = fullText.slice(originalText.length).trim();
+      return { text: extension ? `${trimmedText} ${extension}` : trimmedText, endTime: newEndTime };
+    }
+  }
+
+  return { text: trimmedText, endTime: newEndTime };
 }
 
 // Fetches the chunk immediately after the given chunkIndex for the same video.
@@ -278,17 +311,27 @@ export const handler = withClientIsolation(
       // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 8: Refine each match's startTime to the most question-relevant sentence
-      // within the first chunk (sentences_json covers the Pinecone match only),
-      // then map used citations back to structured objects.
+      // Step 8: Refine each match's start/end boundaries using sentence-level data.
+      // bestSentenceTime finds the most query-relevant sentence within the chunk for
+      // the startTime. trimCitationBoundaries handles both ends: it trims leading
+      // sentences before startTime and truncates at the first topic-break question
+      // ('?' sentence) found after startTime, tightening the endTime so the video
+      // clip stops before the interviewer shifts to an unrelated topic.
       const refinedMatches = mergedMatches.map(m => {
         const newStartTime = bestSentenceTime(question, m.metadata.sentences_json, m.metadata.start_time);
+        const { text, endTime } = trimCitationBoundaries(
+          m.metadata.sentences_json,
+          newStartTime,
+          m.metadata.end_time,
+          m.metadata.text,
+        );
         return {
           ...m,
           metadata: {
             ...m.metadata,
             start_time: newStartTime,
-            text: trimTextToStartTime(m.metadata.sentences_json, newStartTime, m.metadata.text),
+            end_time: endTime,
+            text,
           },
         };
       });
