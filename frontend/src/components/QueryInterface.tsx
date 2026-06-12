@@ -233,11 +233,6 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
   const endTimeRef = useRef(endTime);
   useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
 
-  // Temporary: confirm prop values reaching CitationVideo
-  useEffect(() => {
-    console.log(`[CitationVideo] videoId=${videoId} startTime=${startTime} endTime=${endTime} endTimeRef.current=${endTimeRef.current}`);
-  }, [videoId, startTime, endTime]);
-
   useEffect(() => {
     const cacheKey = `${clientId}/${videoId}`;
     const cached = videoUrlCache.get(cacheKey);
@@ -259,19 +254,19 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
   }
 
   function handleCanPlay() {
-    // Fallback for large files where loadedmetadata fires but seeked doesn't complete
-    // before the browser considers the video playable.
-    if (!ready) setReady(true);
+    const video = videoRef.current;
+    // Only accept canplay as a readiness signal when the browser is at startTime.
+    // With preload="metadata", canplay can fire at position 0 before the seek to
+    // startTime completes — accepting it there would expose the wrong frame.
+    if (!ready && video && Math.abs(video.currentTime - startTime) < 1) {
+      setReady(true);
+    }
   }
 
   function handleTimeUpdate() {
     const video = videoRef.current;
     const end = endTimeRef.current;
     if (!video) return;
-    // Temporary: log near-end state to verify endTime and timeupdate firing
-    if (video.currentTime >= end - 3) {
-      console.log(`[CitationVideo] timeupdate near/at end — currentTime=${video.currentTime.toFixed(2)} endTimeRef=${end}`);
-    }
     if (video.currentTime >= end) {
       video.pause();
     }
@@ -305,7 +300,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
 
   return (
     <div className="citation-video-wrap">
-      {!url && (
+      {(!url || !ready) && (
         <div className="citation-video-loading">
           <span className="citation-video-spinner" />
         </div>
@@ -315,7 +310,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
           <video
             ref={videoRef}
             className={`citation-video${ready ? ' citation-video--ready' : ''}`}
-            src={url}
+            src={`${url}#t=${Math.floor(startTime)}`}
             preload="metadata"
             playsInline
             onLoadedMetadata={handleLoadedMetadata}
@@ -331,7 +326,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
               {formatTime(startTime)}–{formatTime(endTime)} · {formatDuration(endTime - startTime)} clip
             </div>
           )}
-          {!playing && (
+          {ready && !playing && (
             <button
               className="citation-play-overlay citation-play-overlay--ready"
               onClick={handlePlayClick}
