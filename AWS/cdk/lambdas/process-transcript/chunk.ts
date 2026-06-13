@@ -29,7 +29,10 @@ export const MAX_CHUNK_SECONDS = 300;
 // A new-speaker turn shorter than this is treated as a brief interjection
 // (an "uh-huh", a short follow-up) and is absorbed into the current chunk.
 // Does NOT apply once the chunk has reached TOPIC_BREAK_SECONDS.
-export const INTERJECTION_SECONDS = 20;
+// Kept at 10 s — 20 s caused multi-question interviewer turns (~15 s) to be
+// absorbed into the preceding subject chunk, creating multi-topic chunks that
+// misled speakerBoundaries into clipping wrong content.
+export const INTERJECTION_SECONDS = 10;
 
 // Once the dominant speaker has held the floor for this long, any speaker
 // change — even a brief one below INTERJECTION_SECONDS — forces an
