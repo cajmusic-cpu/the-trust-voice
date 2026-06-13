@@ -51,11 +51,9 @@ interface QueryBody {
 interface SentenceMarker {
   startTime: number;
   text: string;
+  speaker: string;  // 'spk_0', 'spk_1', etc. — set by buildSentences at ingest time
 }
 
-// Within a matched chunk, find the sentence whose words overlap most with the
-// question. Falls back to the chunk startTime when sentences_json is absent
-// (old vectors) or when no keyword overlap is found (first sentence = chunk start).
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0, normA = 0, normB = 0;
   for (let i = 0; i < a.length; i++) {
@@ -98,96 +96,74 @@ function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
   return kept;
 }
 
-function bestSentenceTime(question: string, sentencesJson: string | undefined, fallback: number): number {
-  if (!sentencesJson) return fallback;
-  let sentences: SentenceMarker[];
-  try {
-    sentences = JSON.parse(sentencesJson) as SentenceMarker[];
-  } catch {
-    return fallback;
-  }
-  if (sentences.length <= 1) return fallback;
-
-  // 5+ char words only: eliminates common 4-char noise words ("that", "with",
-  // "what") that appear in nearly every sentence and inflate scores artificially.
-  const qWords = new Set(
-    question.toLowerCase().split(/\W+/).filter(w => w.length > 4),
-  );
-
-  // Count distinct qWords present in each sentence (Set intersection), not total
-  // occurrences. A word repeated twice in a sentence is one keyword match, not two.
-  // Skip interviewer question sentences (ending '?') — they contain the same keywords
-  // as the query but point to the wrong speaker and wrong temporal region.
-  // Require 2+ distinct keyword matches (bestScore starts at 1) before overriding
-  // the fallback — a single-keyword match is unreliable as a position signal.
-  let best: SentenceMarker | null = null;
-  let bestScore = 1;
-  for (const s of sentences) {
-    if (s.text.trimEnd().endsWith('?')) continue;
-    const sentenceWords = new Set(s.text.toLowerCase().split(/\W+/));
-    const score = [...qWords].filter(w => sentenceWords.has(w)).length;
-    if (score > bestScore) { bestScore = score; best = s; }
-  }
-
-  return best !== null ? best.startTime : fallback;
-}
-
-// Trims the displayed text and video boundaries to the relevant answer window.
+// Determines clip start and end boundaries from speaker labels stored in sentences_json.
 //
-// Start: drops sentences before startTime (as refined by bestSentenceTime).
-// End: scans forward from the start sentence and truncates at the first interviewer
-// question (sentence ending '?') found after it. A question mid-chunk marks a topic
-// shift; content from there on belongs to a different answer. The extension suffix
-// (text appended from an adjacent chunk at query time) is preserved only when no
-// intra-chunk topic break is found — if a question was found the natural endpoint is
-// already within the chunk and there is no reason to play into the adjacent content.
+// A chunk can contain multiple subject blocks separated by interviewer question turns
+// (e.g. a college wrap-up, then 3 addiction questions, then the addiction answer).
+// The function collects all subject blocks — where a block boundary is a run of 2+
+// consecutive non-subject sentences — and returns the LONGEST block. The longest
+// block is the main answer, not an opener or topic-transition segment.
 //
-// Returns { text, endTime } — endTime may be shorter than originalEndTime when a
-// topic-break question is detected within sentences_json.
-function trimCitationBoundaries(
+// Within each block, single non-subject sentences (brief interjections, "uh-huh")
+// are included in the block rather than ending it.
+//
+// Subject speaker is determined by majority-sentence count within the chunk — this
+// is self-contained and correct even when m.metadata.speaker differs.
+//
+// Falls back to original boundaries when sentences_json is absent or lacks speaker
+// labels (vectors indexed before this change was deployed).
+function speakerBoundaries(
   sentencesJson: string | undefined,
-  startTime: number,
+  originalStartTime: number,
   originalEndTime: number,
   fullText: string,
-): { text: string; endTime: number } {
-  if (!sentencesJson) return { text: fullText, endTime: originalEndTime };
+): { startTime: number; endTime: number; text: string } {
+  const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
+  if (!sentencesJson) return fallback;
+
   let sentences: SentenceMarker[];
   try { sentences = JSON.parse(sentencesJson) as SentenceMarker[]; }
-  catch { return { text: fullText, endTime: originalEndTime }; }
+  catch { return fallback; }
 
-  // idx === -1 (not found) or idx === 0 (chunk start) both map to fromIdx = 0.
-  const idx = sentences.findIndex(s => s.startTime === startTime);
-  const fromIdx = idx <= 0 ? 0 : idx;
+  if (sentences.length === 0 || !sentences[0].speaker) return fallback;
 
-  // Search for the first pair of consecutive '?' sentences after the start sentence.
-  // Two consecutive questions reliably signals an interviewer turn (main question +
-  // follow-up); a single isolated '?' is typically a rhetorical device in the
-  // subject's own speech and should not trigger truncation.
-  // Starting at fromIdx + 1 ensures the very first sentence never truncates the clip.
-  let questionIdx = -1;
-  for (let i = fromIdx + 1; i < sentences.length - 1; i++) {
-    if (
-      sentences[i].text.trimEnd().endsWith('?') &&
-      sentences[i + 1].text.trimEnd().endsWith('?')
-    ) {
-      questionIdx = i;
-      break;
+  // Identify the subject speaker as the one with the most sentences in this chunk.
+  const speakerCounts: Record<string, number> = {};
+  for (const s of sentences) speakerCounts[s.speaker] = (speakerCounts[s.speaker] ?? 0) + 1;
+  const subjectSpeaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]![0];
+
+  // Split sentences into subject blocks. A block ends when 2+ consecutive non-subject
+  // sentences appear; single non-subject sentences are absorbed into the block.
+  const blocks: Array<{ startIdx: number; endIdx: number }> = [];
+  let blockStart: number | null = null;
+
+  for (let i = 0; i < sentences.length; i++) {
+    if (sentences[i].speaker === subjectSpeaker) {
+      if (blockStart === null) blockStart = i;
+    } else if (blockStart !== null) {
+      // Non-subject sentence inside a block — check whether the next is also non-subject.
+      if (i + 1 < sentences.length && sentences[i + 1].speaker !== subjectSpeaker) {
+        // 2-consecutive non-subject run: close the current block here.
+        blocks.push({ startIdx: blockStart, endIdx: i });
+        blockStart = null;
+      }
+      // Single non-subject interjection: leave blockStart intact.
     }
   }
+  if (blockStart !== null) blocks.push({ startIdx: blockStart, endIdx: sentences.length });
 
-  const toIdx = questionIdx !== -1 ? questionIdx : sentences.length;
-  const newEndTime = questionIdx !== -1 ? sentences[questionIdx].startTime : originalEndTime;
-  const trimmedText = sentences.slice(fromIdx, toIdx).map(s => s.text).join(' ');
+  if (blocks.length === 0) return fallback;
 
-  if (questionIdx === -1) {
-    const originalText = sentences.map(s => s.text).join(' ');
-    if (fullText.length > originalText.length) {
-      const extension = fullText.slice(originalText.length).trim();
-      return { text: extension ? `${trimmedText} ${extension}` : trimmedText, endTime: newEndTime };
-    }
-  }
+  // Take the longest block by sentence count — this is the main answer, not a transition.
+  const best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
 
-  return { text: trimmedText, endTime: newEndTime };
+  const newStartTime = sentences[best.startIdx].startTime;
+  const newEndTime = best.endIdx < sentences.length
+    ? sentences[best.endIdx].startTime
+    : originalEndTime;
+  const text = sentences.slice(best.startIdx, best.endIdx).map(s => s.text).join(' ');
+
+  return { startTime: newStartTime, endTime: newEndTime, text };
 }
 
 // Fetches the chunk immediately after the given chunkIndex for the same video.
@@ -274,8 +250,8 @@ export const handler = withClientIsolation(
       // shifts topic scores low on its full vector but high on its opening segment.
       //
       // When extension fires, both chunks' sentences_json arrays are merged so
-      // trimCitationBoundaries can detect topic-break questions anywhere across
-      // the combined clip and stop the video before unrelated content begins.
+      // speakerBoundaries can detect topic shifts anywhere across the combined clip
+      // and stop the video before unrelated content begins.
 
       // Phase A: fetch all adjacent chunks in parallel.
       const nextChunks = await Promise.all(
@@ -312,8 +288,8 @@ export const handler = withClientIsolation(
         const adjacentScore = adjVec ? cosineSimilarity(embedding, adjVec) : 0;
         if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
 
-        // Merge sentences_json so trimCitationBoundaries can find topic-break
-        // questions in the adjacent chunk and clip the video there.
+        // Merge sentences_json so speakerBoundaries can find the topic-shift
+        // run anywhere across the combined clip and stop the video there.
         let mergedSentencesJson = m.metadata.sentences_json;
         if (m.metadata.sentences_json && next.sentences_json) {
           try {
@@ -361,17 +337,15 @@ export const handler = withClientIsolation(
       // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 8: Refine each match's start/end boundaries using sentence-level data.
-      // bestSentenceTime finds the most query-relevant sentence within the chunk for
-      // the startTime. trimCitationBoundaries handles both ends: it trims leading
-      // sentences before startTime and truncates at the first topic-break question
-      // ('?' sentence) found after startTime, tightening the endTime so the video
-      // clip stops before the interviewer shifts to an unrelated topic.
+      // Step 8: Set clip boundaries from speaker labels in sentences_json.
+      // speakerBoundaries identifies the subject speaker by majority-sentence count,
+      // starts the clip at the first subject sentence, and ends it at the first run
+      // of 2+ consecutive non-subject sentences (a sustained interviewer turn),
+      // or at the chunk's natural endTime if no such run exists.
       const refinedMatches = mergedMatches.map(m => {
-        const newStartTime = bestSentenceTime(question, m.metadata.sentences_json, m.metadata.start_time);
-        const { text, endTime } = trimCitationBoundaries(
+        const { startTime, endTime, text } = speakerBoundaries(
           m.metadata.sentences_json,
-          newStartTime,
+          m.metadata.start_time,
           m.metadata.end_time,
           m.metadata.text,
         );
@@ -379,7 +353,7 @@ export const handler = withClientIsolation(
           ...m,
           metadata: {
             ...m.metadata,
-            start_time: newStartTime,
+            start_time: startTime,
             end_time: endTime,
             text,
           },

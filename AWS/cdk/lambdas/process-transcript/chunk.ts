@@ -3,6 +3,7 @@ import type { Word } from './parseTranscript';
 export interface Sentence {
   startTime: number;
   text: string;
+  speaker: string;  // speaker label of the first word in the sentence ('spk_0', 'spk_1', etc.)
 }
 
 export interface Chunk {
@@ -28,7 +29,10 @@ export const MAX_CHUNK_SECONDS = 300;
 // A new-speaker turn shorter than this is treated as a brief interjection
 // (an "uh-huh", a short follow-up) and is absorbed into the current chunk.
 // Does NOT apply once the chunk has reached TOPIC_BREAK_SECONDS.
-export const INTERJECTION_SECONDS = 20;
+// Kept at 10 s — 20 s caused multi-question interviewer turns (~15 s) to be
+// absorbed into the preceding subject chunk, creating multi-topic chunks that
+// misled speakerBoundaries into clipping wrong content.
+export const INTERJECTION_SECONDS = 10;
 
 // Once the dominant speaker has held the floor for this long, any speaker
 // change — even a brief one below INTERJECTION_SECONDS — forces an
@@ -74,13 +78,13 @@ function buildSentences(words: Word[]): Sentence[] {
   for (const word of words) {
     buf.push(word);
     if (buf.length >= 5 && /[.?!]$/.test(word.text)) {
-      sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' ') });
+      sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' '), speaker: buf[0].speaker });
       buf = [];
     }
   }
 
   if (buf.length > 0) {
-    sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' ') });
+    sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' '), speaker: buf[0].speaker });
   }
 
   return sentences;

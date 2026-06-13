@@ -128,8 +128,8 @@ describe('buildChunks', () => {
   });
 
   test('speaker change with long turn splits after MIN_CHUNK_SECONDS', () => {
-    // spk_0 for 65 words (~32s > MIN=15s), spk_1 for 45 words (~22s > INTERJECTION=20s)
-    // → meets all split conditions: speaker changed, chunk >= 15s, turn >= 20s
+    // spk_0 for 65 words (~32s > MIN=15s), spk_1 for 45 words (~22s > INTERJECTION=10s)
+    // → meets all split conditions: speaker changed, chunk >= 15s, turn >= 10s
     const words = makeWordSeq([65, 'spk_0'], [45, 'spk_1']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(2);
@@ -144,9 +144,9 @@ describe('buildChunks', () => {
   });
 
   test('brief interjection (< INTERJECTION_SECONDS) stays in same chunk', () => {
-    // spk_0 long → spk_1 brief (30 words = 14.9s < INTERJECTION=20s) → spk_0 long
+    // spk_0 long → spk_1 brief (15 words = 7.4s < INTERJECTION=10s) → spk_0 long
     // The brief spk_1 turn and the spk_0 resumption are both absorbed.
-    const words = makeWordSeq([65, 'spk_0'], [30, 'spk_1'], [65, 'spk_0']);
+    const words = makeWordSeq([65, 'spk_0'], [15, 'spk_1'], [65, 'spk_0']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(1);
     expect(chunks[0].speaker).toBe('spk_0');
@@ -192,10 +192,10 @@ describe('buildChunks', () => {
   });
 
   test('TOPIC_BREAK_SECONDS forces cut on any speaker change after long answer', () => {
-    // spk_0 for 125 words (~62.4s >= TOPIC_BREAK=60s), then spk_1 for 30 words
-    // (~14.9s < INTERJECTION=20s). Without TOPIC_BREAK the brief turn is absorbed;
+    // spk_0 for 125 words (~62.4s >= TOPIC_BREAK=60s), then spk_1 for 15 words
+    // (~7.4s < INTERJECTION=10s). Without TOPIC_BREAK the brief turn is absorbed;
     // with TOPIC_BREAK it forces an immediate flush.
-    const words = makeWordSeq([125, 'spk_0'], [30, 'spk_1']);
+    const words = makeWordSeq([125, 'spk_0'], [15, 'spk_1']);
     const chunks = buildChunks(words);
     expect(chunks).toHaveLength(2);
     expect(chunks[0].speaker).toBe('spk_0');
