@@ -98,17 +98,17 @@ function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
 
 // Determines clip start and end boundaries from speaker labels stored in sentences_json.
 //
-// startTime: the first sentence belonging to the subject speaker (skips any absorbed
-//   interviewer opener at the head of the chunk).
-// endTime: the start of the first run of 2+ consecutive non-subject sentences. Two
-//   consecutive non-subject sentences reliably signal an interviewer topic shift; a
-//   single non-subject sentence is typically an absorbed interjection or rhetorical
-//   question and should not truncate the clip.
-// text: sentences from startTime to endTime joined into the citation quote.
+// A chunk can contain multiple subject blocks separated by interviewer question turns
+// (e.g. a college wrap-up, then 3 addiction questions, then the addiction answer).
+// The function collects all subject blocks — where a block boundary is a run of 2+
+// consecutive non-subject sentences — and returns the LONGEST block. The longest
+// block is the main answer, not an opener or topic-transition segment.
+//
+// Within each block, single non-subject sentences (brief interjections, "uh-huh")
+// are included in the block rather than ending it.
 //
 // Subject speaker is determined by majority-sentence count within the chunk — this
-// is self-contained and correct even when m.metadata.speaker differs (e.g. absorbed
-// interjections inflate non-subject word count in rare edge cases).
+// is self-contained and correct even when m.metadata.speaker differs.
 //
 // Falls back to original boundaries when sentences_json is absent or lacks speaker
 // labels (vectors indexed before this change was deployed).
@@ -132,23 +132,36 @@ function speakerBoundaries(
   for (const s of sentences) speakerCounts[s.speaker] = (speakerCounts[s.speaker] ?? 0) + 1;
   const subjectSpeaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]![0];
 
-  // startTime: first subject sentence.
-  const firstSubjectIdx = sentences.findIndex(s => s.speaker === subjectSpeaker);
-  if (firstSubjectIdx === -1) return fallback;
-  const newStartTime = sentences[firstSubjectIdx].startTime;
+  // Split sentences into subject blocks. A block ends when 2+ consecutive non-subject
+  // sentences appear; single non-subject sentences are absorbed into the block.
+  const blocks: Array<{ startIdx: number; endIdx: number }> = [];
+  let blockStart: number | null = null;
 
-  // endTime: first run of 2+ consecutive non-subject sentences after the start.
-  let runStart = -1;
-  for (let i = firstSubjectIdx + 1; i < sentences.length - 1; i++) {
-    if (sentences[i].speaker !== subjectSpeaker && sentences[i + 1].speaker !== subjectSpeaker) {
-      runStart = i;
-      break;
+  for (let i = 0; i < sentences.length; i++) {
+    if (sentences[i].speaker === subjectSpeaker) {
+      if (blockStart === null) blockStart = i;
+    } else if (blockStart !== null) {
+      // Non-subject sentence inside a block — check whether the next is also non-subject.
+      if (i + 1 < sentences.length && sentences[i + 1].speaker !== subjectSpeaker) {
+        // 2-consecutive non-subject run: close the current block here.
+        blocks.push({ startIdx: blockStart, endIdx: i });
+        blockStart = null;
+      }
+      // Single non-subject interjection: leave blockStart intact.
     }
   }
+  if (blockStart !== null) blocks.push({ startIdx: blockStart, endIdx: sentences.length });
 
-  const endIdx = runStart >= 0 ? runStart : sentences.length;
-  const newEndTime = runStart >= 0 ? sentences[runStart].startTime : originalEndTime;
-  const text = sentences.slice(firstSubjectIdx, endIdx).map(s => s.text).join(' ');
+  if (blocks.length === 0) return fallback;
+
+  // Take the longest block by sentence count — this is the main answer, not a transition.
+  const best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
+
+  const newStartTime = sentences[best.startIdx].startTime;
+  const newEndTime = best.endIdx < sentences.length
+    ? sentences[best.endIdx].startTime
+    : originalEndTime;
+  const text = sentences.slice(best.startIdx, best.endIdx).map(s => s.text).join(' ');
 
   return { startTime: newStartTime, endTime: newEndTime, text };
 }
