@@ -137,6 +137,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
             speaker: chunk.speaker,
             is_subject: isSubject[i],
             text: chunk.text,
+            sentences_json: JSON.stringify(chunk.sentences),
             pinecone_id: `${videoId}/${chunk.chunkIndex}`,
             created_at: now,
           },
