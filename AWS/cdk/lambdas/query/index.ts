@@ -101,11 +101,20 @@ function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
 // A chunk can contain multiple subject blocks separated by interviewer question turns
 // (e.g. a college wrap-up, then 3 addiction questions, then the addiction answer).
 // The function collects all subject blocks — where a block boundary is a run of 2+
-// consecutive non-subject sentences — and returns the LONGEST block. The longest
-// block is the main answer, not an opener or topic-transition segment.
+// consecutive non-subject sentences — and returns the block most relevant to the query.
 //
 // Within each block, single non-subject sentences (brief interjections, "uh-huh")
 // are included in the block rather than ending it.
+//
+// Speaker diarization sometimes mislabels an interviewer question as the subject
+// speaker. A subject-speaker sentence ending in '?' that is immediately followed
+// by a non-subject sentence also ending in '?' is almost certainly two consecutive
+// interviewer questions with the first mislabeled — this pair is treated as a
+// 2-sentence non-subject run and closes the current block.
+//
+// Block selection: when a queryText is provided, the block whose text has the most
+// keyword overlap with the query is chosen — this is the block Pinecone matched.
+// Ties (and cases with no query) fall back to the longest block.
 //
 // Subject speaker is determined by majority-sentence count within the chunk — this
 // is self-contained and correct even when m.metadata.speaker differs.
@@ -117,6 +126,7 @@ function speakerBoundaries(
   originalStartTime: number,
   originalEndTime: number,
   fullText: string,
+  queryText?: string,
 ): { startTime: number; endTime: number; text: string } {
   const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
   if (!sentencesJson) return fallback;
@@ -132,14 +142,29 @@ function speakerBoundaries(
   for (const s of sentences) speakerCounts[s.speaker] = (speakerCounts[s.speaker] ?? 0) + 1;
   const subjectSpeaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]![0];
 
-  // Split sentences into subject blocks. A block ends when 2+ consecutive non-subject
-  // sentences appear; single non-subject sentences are absorbed into the block.
+  // Split sentences into subject blocks. A block ends when:
+  //   • 2+ consecutive non-subject sentences appear (standard rule), or
+  //   • a subject-speaker '?' sentence is immediately followed by a non-subject '?'
+  //     sentence (diarization error: two interviewer questions, first mislabeled).
   const blocks: Array<{ startIdx: number; endIdx: number }> = [];
   let blockStart: number | null = null;
 
   for (let i = 0; i < sentences.length; i++) {
     if (sentences[i].speaker === subjectSpeaker) {
       if (blockStart === null) blockStart = i;
+      // Diarization-error heuristic: a subject-speaker '?' sentence followed immediately
+      // by a non-subject '?' sentence is two consecutive interviewer questions with the
+      // first mislabeled. Close the block before this sentence (exclude it from the clip).
+      if (
+        sentences[i].text.endsWith('?') &&
+        i + 1 < sentences.length &&
+        sentences[i + 1].speaker !== subjectSpeaker &&
+        sentences[i + 1].text.endsWith('?') &&
+        blockStart < i  // guard: don't push a zero-length block
+      ) {
+        blocks.push({ startIdx: blockStart, endIdx: i });
+        blockStart = null;
+      }
     } else if (blockStart !== null) {
       // Non-subject sentence inside a block — check whether the next is also non-subject.
       if (i + 1 < sentences.length && sentences[i + 1].speaker !== subjectSpeaker) {
@@ -154,8 +179,27 @@ function speakerBoundaries(
 
   if (blocks.length === 0) return fallback;
 
-  // Take the longest block by sentence count — this is the main answer, not a transition.
-  const best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
+  // Select the best block. With multiple blocks and a query, score each block by
+  // keyword overlap with the query (words ≥ 6 chars to skip stop-words) — the
+  // block with the highest score is the one Pinecone matched against the query.
+  // Ties, and cases with no query or no discriminating keywords, fall back to the
+  // longest block.
+  let best: { startIdx: number; endIdx: number };
+  if (blocks.length === 1 || !queryText) {
+    best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
+  } else {
+    const queryWords = new Set(
+      queryText.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length >= 6),
+    );
+    const scored = blocks.map(b => {
+      const blockText = sentences.slice(b.startIdx, b.endIdx).map(s => s.text).join(' ').toLowerCase();
+      let score = 0;
+      for (const w of queryWords) { if (blockText.includes(w)) score++; }
+      return { b, score, size: b.endIdx - b.startIdx };
+    });
+    scored.sort((a, b) => b.score - a.score || b.size - a.size);
+    best = scored[0]!.b;
+  }
 
   const newStartTime = sentences[best.startIdx].startTime;
   const newEndTime = best.endIdx < sentences.length
@@ -348,6 +392,7 @@ export const handler = withClientIsolation(
           m.metadata.start_time,
           m.metadata.end_time,
           m.metadata.text,
+          question,
         );
         return {
           ...m,
