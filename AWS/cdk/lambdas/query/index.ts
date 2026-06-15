@@ -101,33 +101,33 @@ function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
 // A chunk can contain multiple subject blocks separated by interviewer question turns
 // (e.g. a college wrap-up, then 3 addiction questions, then the addiction answer).
 // The function collects all subject blocks — where a block boundary is a run of 2+
-// consecutive non-subject sentences — and returns the block most relevant to the query.
+// consecutive non-subject sentences — then selects the block whose text embeds
+// closest to the query. This is the same cosine similarity that Pinecone used to
+// retrieve the chunk, applied at block granularity. It works regardless of whether
+// the query shares vocabulary with the answer.
 //
 // Within each block, single non-subject sentences (brief interjections, "uh-huh")
 // are included in the block rather than ending it.
 //
-// Speaker diarization sometimes mislabels an interviewer question as the subject
-// speaker. A subject-speaker sentence ending in '?' that is immediately followed
-// by a non-subject sentence also ending in '?' is almost certainly two consecutive
-// interviewer questions with the first mislabeled — this pair is treated as a
-// 2-sentence non-subject run and closes the current block.
-//
-// Block selection: when a queryText is provided, the block whose text has the most
-// keyword overlap with the query is chosen — this is the block Pinecone matched.
-// Ties (and cases with no query) fall back to the longest block.
+// AWS Transcribe's diarization sometimes mislabels a consecutive pair of interviewer
+// questions as (subject, interviewer) rather than (interviewer, interviewer). When a
+// subject-speaker sentence ending in '?' is immediately followed by a non-subject
+// sentence also ending in '?', both are treated as non-subject and the block is
+// closed. This detection is structural (punctuation + speaker transitions) and does
+// not depend on topic or vocabulary.
 //
 // Subject speaker is determined by majority-sentence count within the chunk — this
 // is self-contained and correct even when m.metadata.speaker differs.
 //
 // Falls back to original boundaries when sentences_json is absent or lacks speaker
 // labels (vectors indexed before this change was deployed).
-function speakerBoundaries(
+async function speakerBoundaries(
   sentencesJson: string | undefined,
   originalStartTime: number,
   originalEndTime: number,
   fullText: string,
-  queryText?: string,
-): { startTime: number; endTime: number; text: string } {
+  queryEmbedding?: number[],
+): Promise<{ startTime: number; endTime: number; text: string }> {
   const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
   if (!sentencesJson) return fallback;
 
@@ -145,60 +145,56 @@ function speakerBoundaries(
   // Split sentences into subject blocks. A block ends when:
   //   • 2+ consecutive non-subject sentences appear (standard rule), or
   //   • a subject-speaker '?' sentence is immediately followed by a non-subject '?'
-  //     sentence (diarization error: two interviewer questions, first mislabeled).
+  //     sentence — AWS Transcribe diarization error; two consecutive interviewer
+  //     questions with the first mislabeled as the subject speaker.
   const blocks: Array<{ startIdx: number; endIdx: number }> = [];
   let blockStart: number | null = null;
 
   for (let i = 0; i < sentences.length; i++) {
     if (sentences[i].speaker === subjectSpeaker) {
       if (blockStart === null) blockStart = i;
-      // Diarization-error heuristic: a subject-speaker '?' sentence followed immediately
-      // by a non-subject '?' sentence is two consecutive interviewer questions with the
-      // first mislabeled. Close the block before this sentence (exclude it from the clip).
       if (
         sentences[i].text.endsWith('?') &&
         i + 1 < sentences.length &&
         sentences[i + 1].speaker !== subjectSpeaker &&
         sentences[i + 1].text.endsWith('?') &&
-        blockStart < i  // guard: don't push a zero-length block
+        blockStart < i
       ) {
         blocks.push({ startIdx: blockStart, endIdx: i });
         blockStart = null;
       }
     } else if (blockStart !== null) {
-      // Non-subject sentence inside a block — check whether the next is also non-subject.
       if (i + 1 < sentences.length && sentences[i + 1].speaker !== subjectSpeaker) {
-        // 2-consecutive non-subject run: close the current block here.
         blocks.push({ startIdx: blockStart, endIdx: i });
         blockStart = null;
       }
-      // Single non-subject interjection: leave blockStart intact.
     }
   }
   if (blockStart !== null) blocks.push({ startIdx: blockStart, endIdx: sentences.length });
 
   if (blocks.length === 0) return fallback;
 
-  // Select the best block. With multiple blocks and a query, score each block by
-  // keyword overlap with the query (words ≥ 6 chars to skip stop-words) — the
-  // block with the highest score is the one Pinecone matched against the query.
-  // Ties, and cases with no query or no discriminating keywords, fall back to the
-  // longest block.
+  // With a single block there is nothing to choose between — return it directly.
+  // With multiple blocks and a query embedding, embed each block's text and pick
+  // the one with the highest cosine similarity to the query. This mirrors exactly
+  // how Pinecone selected the chunk and generalises to abstract or paraphrased
+  // queries where keyword overlap would fail. Falls back to longest when no
+  // embedding is provided (e.g. internal calls without a live query).
   let best: { startIdx: number; endIdx: number };
-  if (blocks.length === 1 || !queryText) {
+  if (blocks.length === 1 || !queryEmbedding) {
     best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
   } else {
-    const queryWords = new Set(
-      queryText.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length >= 6),
+    const blockTexts = blocks.map(b =>
+      sentences.slice(b.startIdx, b.endIdx).map(s => s.text).join(' '),
     );
-    const scored = blocks.map(b => {
-      const blockText = sentences.slice(b.startIdx, b.endIdx).map(s => s.text).join(' ').toLowerCase();
-      let score = 0;
-      for (const w of queryWords) { if (blockText.includes(w)) score++; }
-      return { b, score, size: b.endIdx - b.startIdx };
-    });
-    scored.sort((a, b) => b.score - a.score || b.size - a.size);
-    best = scored[0]!.b;
+    const blockEmbeddings = await embedTexts(blockTexts);
+    let bestScore = -Infinity;
+    let bestIdx = 0;
+    for (let i = 0; i < blockEmbeddings.length; i++) {
+      const score = cosineSimilarity(queryEmbedding, blockEmbeddings[i]!);
+      if (score > bestScore) { bestScore = score; bestIdx = i; }
+    }
+    best = blocks[bestIdx]!;
   }
 
   const newStartTime = sentences[best.startIdx].startTime;
@@ -385,14 +381,16 @@ export const handler = withClientIsolation(
       // speakerBoundaries identifies the subject speaker by majority-sentence count,
       // starts the clip at the first subject sentence, and ends it at the first run
       // of 2+ consecutive non-subject sentences (a sustained interviewer turn),
-      // or at the chunk's natural endTime if no such run exists.
-      const refinedMatches = mergedMatches.map(m => {
-        const { startTime, endTime, text } = speakerBoundaries(
+      // or at the chunk's natural endTime if no such run exists. When multiple
+      // subject blocks exist in a chunk, the block is chosen by embedding cosine
+      // similarity against the query — the same metric that retrieved the chunk.
+      const refinedMatches = await Promise.all(mergedMatches.map(async m => {
+        const { startTime, endTime, text } = await speakerBoundaries(
           m.metadata.sentences_json,
           m.metadata.start_time,
           m.metadata.end_time,
           m.metadata.text,
-          question,
+          embedding,
         );
         return {
           ...m,
@@ -403,7 +401,7 @@ export const handler = withClientIsolation(
             text,
           },
         };
-      });
+      }));
       const citations = buildCitations(refinedMatches, usedCitationIndices);
 
       void logQuery({ clientId, userEmail, question, citationCount: citations.length })
