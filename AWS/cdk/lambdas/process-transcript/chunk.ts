@@ -2,6 +2,7 @@ import type { Word } from './parseTranscript';
 
 export interface Sentence {
   startTime: number;
+  endTime: number;   // endTime of last word — silence gap to next sentence's startTime is the primary citation boundary
   text: string;
   speaker: string;  // speaker label of the first word in the sentence ('spk_0', 'spk_1', etc.)
 }
@@ -78,13 +79,23 @@ function buildSentences(words: Word[]): Sentence[] {
   for (const word of words) {
     buf.push(word);
     if (buf.length >= 5 && /[.?!]$/.test(word.text)) {
-      sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' '), speaker: buf[0].speaker });
+      sentences.push({
+        startTime: buf[0].startTime,
+        endTime: buf[buf.length - 1].endTime,
+        text: buf.map(w => w.text).join(' '),
+        speaker: buf[0].speaker,
+      });
       buf = [];
     }
   }
 
   if (buf.length > 0) {
-    sentences.push({ startTime: buf[0].startTime, text: buf.map(w => w.text).join(' '), speaker: buf[0].speaker });
+    sentences.push({
+      startTime: buf[0].startTime,
+      endTime: buf[buf.length - 1].endTime,
+      text: buf.map(w => w.text).join(' '),
+      speaker: buf[0].speaker,
+    });
   }
 
   return sentences;
