@@ -144,6 +144,13 @@ export class TrustVoiceStack extends cdk.Stack {
       resources: [`arn:aws:s3:::ttv-*-videos/*`],
     }));
 
+    // Transcribe validates the output bucket using the calling role's credentials.
+    // Without s3:PutObject on transcripts buckets, StartTranscriptionJob fails.
+    this.ingestLambdaRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['s3:PutObject'],
+      resources: [`arn:aws:s3:::ttv-*-transcripts/*`],
+    }));
+
     const mediaConvertRole = new iam.Role(this, 'MediaConvertRole', {
       roleName: 'ttv-mediaconvert-role',
       assumedBy: new iam.ServicePrincipal('mediaconvert.amazonaws.com'),
@@ -356,6 +363,7 @@ export class TrustVoiceStack extends cdk.Stack {
         PINECONE_INDEX_HOST: 'https://ttv-embeddings-he5dsra.svc.aped-4627-b74a.pinecone.io',
         QUERY_LOG_TABLE: queryLogTable.tableName,
         CHUNKS_TABLE: this.chunksTable.tableName,
+        VIDEOS_TABLE: this.videosTable.tableName,
       },
       bundling: {
         minify: true,

@@ -11,6 +11,7 @@ import { logQuery } from './log';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const CHUNKS_TABLE = process.env['CHUNKS_TABLE']!;
+const VIDEOS_TABLE = process.env['VIDEOS_TABLE']!;
 
 // Two chunks with embedding cosine similarity above this are considered the same
 // topic; the lower-scoring one is dropped. 0.92 is intentionally strict — with
@@ -48,8 +49,14 @@ interface QueryBody {
   question: string;
 }
 
+// Minimum silence gap (seconds) that signals a topic/answer boundary.
+// A pause of this length between sentence[i].endTime and sentence[i+1].startTime
+// closes the current citation clip regardless of speaker label changes.
+const SILENCE_GAP_SECONDS = 2.5;
+
 interface SentenceMarker {
   startTime: number;
+  endTime: number;   // endTime of last word — used for silence-gap boundary detection
   text: string;
   speaker: string;  // 'spk_0', 'spk_1', etc. — set by buildSentences at ingest time
 }
@@ -96,37 +103,35 @@ function removeTimeOverlaps(matches: ChunkMatch[]): ChunkMatch[] {
   return kept;
 }
 
-// Determines clip start and end boundaries from speaker labels stored in sentences_json.
+// Determines clip start and end boundaries using three signals in priority order:
 //
-// A chunk can contain multiple subject blocks separated by interviewer question turns
-// (e.g. a college wrap-up, then 3 addiction questions, then the addiction answer).
-// The function collects all subject blocks — where a block boundary is a run of 2+
-// consecutive non-subject sentences — then selects the block whose text embeds
-// closest to the query. This is the same cosine similarity that Pinecone used to
-// retrieve the chunk, applied at block granularity. It works regardless of whether
-// the query shares vocabulary with the answer.
+//  1. Subject speaker (Change 3): taken from the globally-computed subject_speaker
+//     on the video record (word counts across the entire interview). Falls back to
+//     local majority-sentence count only when no global value is passed — the
+//     local count can invert on short chunks where the interviewer has more
+//     sentences than the subject.
 //
-// Within each block, single non-subject sentences (brief interjections, "uh-huh")
-// are included in the block rather than ending it.
+//  2. Silence gap (Change 2, primary boundary): a gap ≥ SILENCE_GAP_SECONDS between
+//     sentence[i].endTime and sentence[i+1].startTime closes the current block.
+//     Multi-second pauses are a reliable interview structure signal independent of
+//     speaker label accuracy. endTimestamp records the actual endTime of the last
+//     subject sentence so the clip cuts at the correct word boundary.
 //
-// AWS Transcribe's diarization sometimes mislabels a consecutive pair of interviewer
-// questions as (subject, interviewer) rather than (interviewer, interviewer). When a
-// subject-speaker sentence ending in '?' is immediately followed by a non-subject
-// sentence also ending in '?', both are treated as non-subject and the block is
-// closed. This detection is structural (punctuation + speaker transitions) and does
-// not depend on topic or vocabulary.
+//  3. Speaker labels (secondary boundary): when no silence gap closes the block,
+//     2+ consecutive non-subject sentences end it — retained as a fallback for
+//     chunks indexed before endTimes were stored.
 //
-// Subject speaker is determined by majority-sentence count within the chunk — this
-// is self-contained and correct even when m.metadata.speaker differs.
-//
-// Falls back to original boundaries when sentences_json is absent or lacks speaker
-// labels (vectors indexed before this change was deployed).
+//  When multiple subject blocks exist in a chunk, the block whose text embeds
+//  closest to the query is selected (same cosine metric Pinecone used to retrieve
+//  the chunk). Falls back to original boundaries when sentences_json is absent or
+//  lacks speaker labels.
 async function speakerBoundaries(
   sentencesJson: string | undefined,
   originalStartTime: number,
   originalEndTime: number,
   fullText: string,
   queryEmbedding?: number[],
+  subjectSpeaker?: string,
 ): Promise<{ startTime: number; endTime: number; text: string }> {
   const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
   if (!sentencesJson) return fallback;
@@ -137,50 +142,76 @@ async function speakerBoundaries(
 
   if (sentences.length === 0 || !sentences[0].speaker) return fallback;
 
-  // Identify the subject speaker as the one with the most sentences in this chunk.
-  const speakerCounts: Record<string, number> = {};
-  for (const s of sentences) speakerCounts[s.speaker] = (speakerCounts[s.speaker] ?? 0) + 1;
-  const subjectSpeaker = Object.entries(speakerCounts).sort((a, b) => b[1] - a[1])[0]![0];
+  // Use globally-computed subject speaker when provided (Change 3).
+  // Local majority-sentence count is kept as a fallback for vectors indexed
+  // before the global value was stored on the video record.
+  let resolvedSubjectSpeaker: string;
+  if (subjectSpeaker) {
+    resolvedSubjectSpeaker = subjectSpeaker;
+  } else {
+    const counts: Record<string, number> = {};
+    for (const s of sentences) counts[s.speaker] = (counts[s.speaker] ?? 0) + 1;
+    resolvedSubjectSpeaker = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]![0];
+  }
 
-  // Split sentences into subject blocks. A block ends when:
-  //   • 2+ consecutive non-subject sentences appear (standard rule), or
-  //   • a subject-speaker '?' sentence is immediately followed by a non-subject '?'
-  //     sentence — AWS Transcribe diarization error; two consecutive interviewer
-  //     questions with the first mislabeled as the subject speaker.
-  const blocks: Array<{ startIdx: number; endIdx: number }> = [];
+  // Silence-gap detection requires endTimes stored by Change 1.
+  const hasEndTimes = sentences.some(s => typeof s.endTime === 'number' && s.endTime > 0);
+
+  interface Block { startIdx: number; endIdx: number; endTimestamp: number }
+  const blocks: Block[] = [];
+
   let blockStart: number | null = null;
+  let lastSubjectEndTime = originalEndTime;
+  let lastSubjectIdx = -1;
 
   for (let i = 0; i < sentences.length; i++) {
-    if (sentences[i].speaker === subjectSpeaker) {
-      if (blockStart === null) blockStart = i;
-      if (
-        sentences[i].text.endsWith('?') &&
-        i + 1 < sentences.length &&
-        sentences[i + 1].speaker !== subjectSpeaker &&
-        sentences[i + 1].text.endsWith('?') &&
-        blockStart < i
-      ) {
-        blocks.push({ startIdx: blockStart, endIdx: i });
-        blockStart = null;
-      }
-    } else if (blockStart !== null) {
-      if (i + 1 < sentences.length && sentences[i + 1].speaker !== subjectSpeaker) {
-        blocks.push({ startIdx: blockStart, endIdx: i });
-        blockStart = null;
-      }
+    const s = sentences[i];
+    const hasNext = i + 1 < sentences.length;
+
+    // Open a new block at the first subject sentence.
+    if (s.speaker === resolvedSubjectSpeaker && blockStart === null) {
+      blockStart = i;
+    }
+
+    if (blockStart === null) continue;
+
+    // Track the most-recent subject sentence position and endTime.
+    if (s.speaker === resolvedSubjectSpeaker) {
+      lastSubjectEndTime = (hasEndTimes && s.endTime > 0) ? s.endTime : s.startTime + 3;
+      lastSubjectIdx = i;
+    }
+
+    let closeBlock = false;
+
+    // PRIMARY: silence gap closes the block at the actual word boundary.
+    if (hasEndTimes && hasNext && s.endTime > 0) {
+      if (sentences[i + 1].startTime - s.endTime >= SILENCE_GAP_SECONDS) closeBlock = true;
+    }
+
+    // SECONDARY: 2+ consecutive non-subject sentences (fallback when no endTimes).
+    if (!closeBlock && s.speaker !== resolvedSubjectSpeaker) {
+      if (hasNext && sentences[i + 1].speaker !== resolvedSubjectSpeaker) closeBlock = true;
+    }
+
+    if (closeBlock) {
+      // For text: only include through the last subject sentence so any non-subject
+      // content at the boundary is excluded from the clip text.
+      const textEndIdx = lastSubjectIdx >= blockStart ? lastSubjectIdx + 1 : i + 1;
+      blocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
+      blockStart = null;
+      lastSubjectEndTime = originalEndTime;
+      lastSubjectIdx = -1;
     }
   }
-  if (blockStart !== null) blocks.push({ startIdx: blockStart, endIdx: sentences.length });
+
+  if (blockStart !== null) {
+    const textEndIdx = lastSubjectIdx >= blockStart ? lastSubjectIdx + 1 : sentences.length;
+    blocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
+  }
 
   if (blocks.length === 0) return fallback;
 
-  // With a single block there is nothing to choose between — return it directly.
-  // With multiple blocks and a query embedding, embed each block's text and pick
-  // the one with the highest cosine similarity to the query. This mirrors exactly
-  // how Pinecone selected the chunk and generalises to abstract or paraphrased
-  // queries where keyword overlap would fail. Falls back to longest when no
-  // embedding is provided (e.g. internal calls without a live query).
-  let best: { startIdx: number; endIdx: number };
+  let best: Block;
   if (blocks.length === 1 || !queryEmbedding) {
     best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
   } else {
@@ -198,12 +229,21 @@ async function speakerBoundaries(
   }
 
   const newStartTime = sentences[best.startIdx].startTime;
-  const newEndTime = best.endIdx < sentences.length
-    ? sentences[best.endIdx].startTime
-    : originalEndTime;
+  const newEndTime = best.endTimestamp;
   const text = sentences.slice(best.startIdx, best.endIdx).map(s => s.text).join(' ');
 
   return { startTime: newStartTime, endTime: newEndTime, text };
+}
+
+// Reads subject_speaker from the video record — globally computed across the full
+// interview, so it is reliable even on short chunks where local sentence count inverts.
+async function fetchSubjectSpeaker(clientId: string, videoId: string): Promise<string | undefined> {
+  const res = await ddb.send(new GetCommand({
+    TableName: VIDEOS_TABLE,
+    Key: { client_id: clientId, video_id: videoId },
+    ProjectionExpression: 'subject_speaker',
+  }));
+  return (res.Item as { subject_speaker?: string } | undefined)?.subject_speaker;
 }
 
 // Fetches the chunk immediately after the given chunkIndex for the same video.
@@ -377,13 +417,18 @@ export const handler = withClientIsolation(
       // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
       const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
 
-      // Step 8: Set clip boundaries from speaker labels in sentences_json.
-      // speakerBoundaries identifies the subject speaker by majority-sentence count,
-      // starts the clip at the first subject sentence, and ends it at the first run
-      // of 2+ consecutive non-subject sentences (a sustained interviewer turn),
-      // or at the chunk's natural endTime if no such run exists. When multiple
-      // subject blocks exist in a chunk, the block is chosen by embedding cosine
-      // similarity against the query — the same metric that retrieved the chunk.
+      // Step 8: Set clip boundaries using silence gaps, global subject speaker, and
+      // speaker labels. Fetch subject_speaker from the video record once per unique
+      // video — it is computed globally across the full interview by process-transcript
+      // and is reliable even on short chunks where local sentence count inverts.
+      const uniqueVideoIds = [...new Set(mergedMatches.map(m => m.metadata.video_id))];
+      const speakerResults = await Promise.all(
+        uniqueVideoIds.map(vid => fetchSubjectSpeaker(clientId, vid)),
+      );
+      const subjectSpeakerByVideo = new Map<string, string | undefined>(
+        uniqueVideoIds.map((vid, i) => [vid, speakerResults[i]]),
+      );
+
       const refinedMatches = await Promise.all(mergedMatches.map(async m => {
         const { startTime, endTime, text } = await speakerBoundaries(
           m.metadata.sentences_json,
@@ -391,6 +436,7 @@ export const handler = withClientIsolation(
           m.metadata.end_time,
           m.metadata.text,
           embedding,
+          subjectSpeakerByVideo.get(m.metadata.video_id),
         );
         return {
           ...m,
