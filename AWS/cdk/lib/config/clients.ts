@@ -11,4 +11,5 @@ export const CLIENTS: ClientConfig[] = [
   { id: '5fbc7625-d566-4ec5-93f4-b82f52ad17bc', name: 'Robert Caldwell' },
   { id: 'a5be0dd6-14b9-4a47-a5bf-7440bdc7eb85', name: 'Wyatt Dixon Demo' },
   { id: 'c64e37b9-ca34-439b-8a03-c4de24b2b327', name: 'Wyatt Dixon' },
+  { id: '594292a9-7704-4507-9f53-4de7eaf34657', name: 'Lisa Satterfield' },
 ];
