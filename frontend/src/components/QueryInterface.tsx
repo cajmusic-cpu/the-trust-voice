@@ -2,6 +2,19 @@ import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 
 import { queryClient, getVideoUrl, type Citation } from '../api/client';
 import { signOut } from '../auth/cognito';
 
+const TOPICS = [
+  "The grantor's values and what mattered most to them",
+  "Guidance on supporting a beneficiary's education",
+  "Helping a beneficiary purchase a home",
+  "How to handle a beneficiary facing financial hardship",
+  "The grantor's wishes around health, addiction, or treatment",
+  "Supporting a beneficiary who wants to start a business",
+  "Balancing fairness between different beneficiaries",
+  "When to provide support and when to hold back",
+  "The grantor's hopes for future generations",
+  "How the grantor would want difficult or unexpected decisions handled",
+];
+
 interface Turn {
   question: string;
   answer: string;
@@ -24,6 +37,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [topicsOpen, setTopicsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -147,6 +161,41 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
       </div>
 
       <div className="input-bar">
+        <div className="topics-hint" style={{ maxWidth: 780, margin: '0 auto 12px' }}>
+          <button
+            className="topics-trigger"
+            onClick={() => setTopicsOpen(o => !o)}
+            aria-expanded={topicsOpen}
+            type="button"
+          >
+            <span>Not sure where to start? Topics you can explore</span>
+            <svg
+              className={`topics-chevron${topicsOpen ? ' topics-chevron--open' : ''}`}
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <div className={`topics-panel-wrap${topicsOpen ? ' topics-panel-wrap--open' : ''}`}>
+            <div className="topics-panel-inner">
+              <div className="topics-panel">
+                <p className="topics-intro">
+                  Ask in your own words — the tool understands natural, conversational questions.
+                  These are areas to explore, not exact phrases to use.
+                </p>
+                <ul className="topics-list">
+                  {TOPICS.map((topic, i) => (
+                    <li key={i} className="topics-item">{topic}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
         <form onSubmit={handleSubmit} className="input-form">
           <textarea
             ref={textareaRef}
