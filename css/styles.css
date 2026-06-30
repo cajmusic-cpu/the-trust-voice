@@ -340,6 +340,73 @@ section { padding: 7rem 4rem; }
   color: rgba(255,255,255,0.75); font-family: 'Montserrat', sans-serif; font-weight: 400;
 }
 
+/* === TESTIMONIALS === */
+.section-testimonials {
+  background: var(--white);
+  border-top: 1px solid var(--stone);
+  border-bottom: 1px solid var(--stone);
+}
+.testimonials-inner { max-width: 1100px; margin: 0 auto; }
+.testimonials-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 2rem;
+  margin-top: 3.5rem;
+  max-width: 760px; /* widen to 1100px once you have 3+ testimonials */
+}
+.testimonial-card {
+  padding: 2.5rem;
+  border: 1px solid var(--stone);
+  border-top: 3px solid var(--gold);
+  background: var(--cream);
+  display: flex;
+  flex-direction: column;
+}
+.testimonial-quote-mark {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 4.5rem;
+  line-height: 0.75;
+  color: var(--gold);
+  opacity: 0.45;
+  margin-bottom: 1rem;
+  font-weight: 300;
+  user-select: none;
+}
+.testimonial-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.1rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--navy);
+  line-height: 1.8;
+  flex: 1;
+  margin-bottom: 2rem;
+}
+.testimonial-attribution {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+.testimonial-dash {
+  width: 24px;
+  height: 1px;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+.testimonial-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--navy);
+  margin-bottom: 0.2rem;
+}
+.testimonial-role {
+  font-size: 0.7rem;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+
 /* === DIFFERENCE SECTION === */
 .section-diff { background: var(--navy); color: var(--white); }
 .diff-inner { max-width: 1100px; margin: 0 auto; }
@@ -511,6 +578,8 @@ footer {
 
   .attorneys-inner { grid-template-columns: 1fr; gap: 3rem; }
   .attorney-callout { position: static; }
+
+  .testimonials-grid { grid-template-columns: 1fr; max-width: 100%; }
 
   .cta-actions { flex-direction: column; align-items: center; }
   .section-cta { padding: 5rem 1.5rem; }

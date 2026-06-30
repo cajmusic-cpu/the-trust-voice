@@ -109,3 +109,56 @@ jobs:
 
       - name: Deploy
         run: npx cdk deploy --require-approval never
+
+  # ── Deploy portal frontend (React → S3 → CloudFront) ──────────────────────
+  # Runs in parallel with the CDK deploy, after CI passes.
+  # Targets the portal bucket (portal.thetrustvoice.com) only.
+  # The marketing site (thetrustvoice.com) is on Netlify and auto-deploys
+  # when changes are pushed to main — no action needed here for it.
+  deploy-portal:
+    name: Deploy Portal Frontend
+    needs: [Lint, Test, Build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Sync to S3
+        run: |
+          BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name TrustVoiceStack \
+            --query "Stacks[0].Outputs[?OutputKey=='PortalBucketName'].OutputValue" \
+            --output text)
+          aws s3 sync dist/ s3://$BUCKET --delete
+
+      - name: Invalidate CloudFront
+        run: |
+          DIST_ID=$(aws cloudformation describe-stacks \
+            --stack-name TrustVoiceStack \
+            --query "Stacks[0].Outputs[?OutputKey=='PortalDistributionId'].OutputValue" \
+            --output text)
+          aws cloudfront create-invalidation --distribution-id $DIST_ID --paths "/*"
