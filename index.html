@@ -53,7 +53,7 @@
   </ul>
   <div class="nav-actions">
     <a href="https://portal.thetrustvoice.com" class="nav-cta">Login</a>
-    <a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="nav-cta">Schedule a Consultation</a>
+    <button class="nav-cta" data-inquiry>Schedule a Consultation</button>
   </div>
   <button class="nav-hamburger" aria-label="Open menu" aria-expanded="false">
     <span></span><span></span><span></span>
@@ -69,7 +69,7 @@
     <li><a href="#attorneys">For Professionals</a></li>
     <li><a href="/faq">FAQ</a></li>
     <li><a href="https://portal.thetrustvoice.com" class="mobile-cta">Login</a></li>
-    <li><a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="mobile-cta">Schedule a Consultation</a></li>
+    <li><button class="mobile-cta" data-inquiry>Schedule a Consultation</button></li>
   </ul>
 </div>
 
@@ -338,7 +338,7 @@
       <h3>Let's discuss how this serves your clients.</h3>
       <p>We welcome introductions from any professional who serves clients with significant estates. If you see the value in what we do, we would love to hear from you.*</p>
       <p>If you have clients with active irrevocable trusts or complex estates currently in planning, we would welcome a private conversation.</p>
-      <a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="callout-link">Request a Private Briefing →</a>
+      <button class="callout-link" data-inquiry>Request a Private Briefing →</button>
     </div>
   </div>
 </section>
@@ -349,8 +349,8 @@
   <h2>Your wishes deserve a <em>living voice.</em></h2>
   <p>The Trust Voice is available by referral through select estate planning attorneys and wealth advisors, and by direct inquiry.</p>
   <div class="cta-actions">
-    <a href="mailto:info@thetrustvoice.com?subject=Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="btn-primary">Request a Consultation</a>
-    <a href="mailto:advisors@thetrustvoice.com?subject=Professional%20Inquiry%20%E2%80%94%20The%20Trust%20Voice" class="btn-ghost">Professional Inquiries →</a>
+    <button class="btn-primary" data-inquiry>Request a Consultation</button>
+    <button class="btn-ghost" data-inquiry>Professional Inquiries →</button>
   </div>
 </section>
 
@@ -362,107 +362,54 @@
   </div>
 </footer>
 
-<!-- ===================== CONSULTATION MODAL (Netlify Form) ===================== -->
-<div class="modal-overlay" id="consultationModal" role="dialog" aria-modal="true" aria-labelledby="consultationTitle">
+<!-- ===================== INQUIRY MODAL (Netlify Form) ===================== -->
+<div class="modal-overlay" id="inquiryModal" role="dialog" aria-modal="true" aria-labelledby="inquiryModalTitle">
   <div class="modal">
     <button class="modal-close" aria-label="Close dialog">&times;</button>
-    <div class="modal-eyebrow">Request a Consultation</div>
-    <h2 id="consultationTitle" class="modal-title">Begin the conversation</h2>
-    <p class="modal-sub">We will be in touch within one business day to schedule a private call.</p>
+    <div class="modal-eyebrow">Get in Touch</div>
+    <h2 id="inquiryModalTitle" class="modal-title">We&rsquo;d love to hear from you</h2>
+    <p class="modal-sub">Tell us a bit about yourself and we&rsquo;ll be in touch within one business day.</p>
 
     <form
-      name="consultation"
+      name="inquiry"
       method="POST"
       data-netlify="true"
       netlify-honeypot="bot-field"
       class="contact-form"
-      id="consultationForm"
+      id="inquiryForm"
     >
-      <input type="hidden" name="form-name" value="consultation">
+      <input type="hidden" name="form-name" value="inquiry">
       <p class="visually-hidden">
-        <label>Do not fill this field: <input name="bot-field" tabindex="-1" autocomplete="off"></label>
+        <label>Don&rsquo;t fill this out: <input name="bot-field" tabindex="-1" autocomplete="off"></label>
       </p>
       <div class="form-group">
-        <label for="c-name">Full Name</label>
-        <input type="text" id="c-name" name="name" required placeholder="Your name">
+        <label for="inq-name">Full Name</label>
+        <input type="text" id="inq-name" name="name" required placeholder="Your name">
       </div>
       <div class="form-group">
-        <label for="c-email">Email Address</label>
-        <input type="email" id="c-email" name="email" required placeholder="your@email.com">
+        <label for="inq-email">Email Address</label>
+        <input type="email" id="inq-email" name="email" required placeholder="your@email.com">
       </div>
       <div class="form-group">
-        <label for="c-phone">Phone <span style="font-weight:300;text-transform:none;letter-spacing:0">(optional)</span></label>
-        <input type="tel" id="c-phone" name="phone" placeholder="+1 (555) 000-0000">
-      </div>
-      <div class="form-group">
-        <label for="c-message">What prompted your interest?</label>
-        <textarea id="c-message" name="message" rows="4" placeholder="Tell us briefly about your situation…"></textarea>
-      </div>
-      <p class="form-error" role="alert">Something went wrong. Please try again or email us at <a href="mailto:info@thetrustvoice.com">info@thetrustvoice.com</a>.</p>
-      <button type="submit" class="btn-primary btn-full">Send Inquiry</button>
-    </form>
-
-    <div class="form-success" aria-live="polite">
-      <div class="success-icon">&#10003;</div>
-      <p>Thank you. We will be in touch shortly.</p>
-    </div>
-  </div>
-</div>
-
-<!-- ===================== ADVISOR MODAL (Netlify Form) ===================== -->
-<div class="modal-overlay" id="advisorModal" role="dialog" aria-modal="true" aria-labelledby="advisorTitle">
-  <div class="modal">
-    <button class="modal-close" aria-label="Close dialog">&times;</button>
-    <div class="modal-eyebrow">Professional Inquiries</div>
-    <h2 id="advisorTitle" class="modal-title">Request a private briefing</h2>
-    <p class="modal-sub">For estate planning attorneys, wealth advisors, and family office professionals.</p>
-
-    <form
-      name="advisor-inquiry"
-      method="POST"
-      data-netlify="true"
-      netlify-honeypot="bot-field"
-      class="contact-form"
-      id="advisorForm"
-    >
-      <input type="hidden" name="form-name" value="advisor-inquiry">
-      <p class="visually-hidden">
-        <label>Do not fill this field: <input name="bot-field" tabindex="-1" autocomplete="off"></label>
-      </p>
-      <div class="form-group">
-        <label for="a-name">Full Name</label>
-        <input type="text" id="a-name" name="name" required placeholder="Your name">
-      </div>
-      <div class="form-group">
-        <label for="a-firm">Firm Name</label>
-        <input type="text" id="a-firm" name="firm" required placeholder="Your firm or practice">
-      </div>
-      <div class="form-group">
-        <label for="a-email">Email Address</label>
-        <input type="email" id="a-email" name="email" required placeholder="your@firm.com">
-      </div>
-      <div class="form-group">
-        <label for="a-role">Your Role</label>
-        <select id="a-role" name="role">
-          <option value="">Select your role</option>
-          <option>Estate Planning Attorney</option>
-          <option>Wealth Advisor</option>
-          <option>Trust Officer</option>
-          <option>Family Office</option>
-          <option>Other</option>
+        <label for="inq-type">I am a&hellip;</label>
+        <select id="inq-type" name="inquiry-type" required>
+          <option value="">Select one</option>
+          <option value="Estate Planning Attorney">Estate Planning Attorney</option>
+          <option value="Wealth Advisor">Wealth Advisor</option>
+          <option value="Individual / Family">Individual / Family</option>
         </select>
       </div>
       <div class="form-group">
-        <label for="a-message">How can we help?</label>
-        <textarea id="a-message" name="message" rows="3" placeholder="Tell us about your clients or practice…"></textarea>
+        <label for="inq-message">How can we help?</label>
+        <textarea id="inq-message" name="message" rows="4" placeholder="Tell us a bit about your situation or question&hellip;" required></textarea>
       </div>
       <p class="form-error" role="alert">Something went wrong. Please try again or email us at <a href="mailto:info@thetrustvoice.com">info@thetrustvoice.com</a>.</p>
-      <button type="submit" class="btn-primary btn-full">Request Briefing</button>
+      <button type="submit" class="btn-primary btn-full">Send Message</button>
     </form>
 
     <div class="form-success" aria-live="polite">
       <div class="success-icon">&#10003;</div>
-      <p>Thank you. We will be in touch within one business day.</p>
+      <p>Thank you. We&rsquo;ll be in touch within one business day.</p>
     </div>
   </div>
 </div>

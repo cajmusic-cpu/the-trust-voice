@@ -1,5 +1,6 @@
 /* === RESET & VARIABLES === */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { font-family: inherit; }
 :root {
   --navy: #1B2E45;
   --navy-deep: #0F1E2E;
