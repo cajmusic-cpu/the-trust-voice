@@ -39,10 +39,15 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   const [error, setError] = useState('');
   const [topicsOpen, setTopicsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const latestAnswerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (loading) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      latestAnswerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
@@ -114,7 +119,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
               <span className="turn-label">You</span>
               <p>{turn.question}</p>
             </div>
-            <div className="turn-answer">
+            <div className="turn-answer" ref={i === turns.length - 1 ? latestAnswerRef : null}>
               <span className="turn-label">Trust Voice</span>
               <div className="answer-text">
                 {renderAnswer(turn.answer, turn.citations)}
