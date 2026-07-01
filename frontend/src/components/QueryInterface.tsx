@@ -38,16 +38,12 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [topicsOpen, setTopicsOpen] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const latestAnswerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (loading) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      latestAnswerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (loading || turns.length === 0) return;
+    latestAnswerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
@@ -162,7 +158,6 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
         )}
 
         {error && <p className="inline-error">{error}</p>}
-        <div ref={bottomRef} />
       </div>
 
       <div className="input-bar">
