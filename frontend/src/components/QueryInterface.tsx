@@ -38,12 +38,19 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [topicsOpen, setTopicsOpen] = useState(false);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const latestAnswerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (loading || turns.length === 0) return;
-    latestAnswerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const container = conversationRef.current;
+    const answer = latestAnswerRef.current;
+    if (!container || !answer) return;
+    // Scroll the conversation container directly so only it moves (not window or
+    // any overflow:hidden ancestor), and position the answer text at the top.
+    const delta = answer.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' });
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
@@ -98,7 +105,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
         </div>
       </header>
 
-      <div className="conversation">
+      <div className="conversation" ref={conversationRef}>
         {turns.length === 0 && !loading && (
           <div className="empty-state">
             <p className="empty-title">Ask about {clientName}'s wishes</p>
