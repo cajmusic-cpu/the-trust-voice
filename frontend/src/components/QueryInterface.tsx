@@ -44,45 +44,18 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
 
   useEffect(() => {
     if (loading || turns.length === 0) return;
-    const container = conversationRef.current;
     const answer = latestAnswerRef.current;
+    const container = conversationRef.current;
+    if (!answer || !container) return;
 
-    // ── SCROLL DEBUG (temporary) ──────────────────────────────────────────────
-    console.log('[ScrollDebug] refs:', {
-      container: container ? container.className : 'NULL',
-      answer: answer ? answer.className : 'NULL',
+    // Defer one frame so any browser-initiated scroll from the DOM mutation
+    // has already fired, then override with an instant assignment.
+    const raf = requestAnimationFrame(() => {
+      const containerTop = container.getBoundingClientRect().top;
+      const answerTop = answer.getBoundingClientRect().top;
+      container.scrollTop = container.scrollTop + (answerTop - containerTop);
     });
-    if (!container || !answer) {
-      console.log('[ScrollDebug] Aborting — null ref');
-      return;
-    }
-    const answerRect = answer.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    const delta = answerRect.top - containerRect.top;
-    const scrollTopBefore = container.scrollTop;
-    const targetScrollTop = scrollTopBefore + delta;
-    const anchorStyle = getComputedStyle(container).overflowAnchor;
-
-    console.log('[ScrollDebug] Before scrollTo:', {
-      'answer.getBoundingClientRect().top': answerRect.top,
-      'container.getBoundingClientRect().top': containerRect.top,
-      delta,
-      scrollTopBefore,
-      targetScrollTop,
-      'container overflow-anchor (CSS)': anchorStyle,
-    });
-
-    container.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-
-    // Sample scroll position at 400 ms intervals to catch both the smooth-scroll
-    // landing point and any post-settle drift (scroll anchoring, etc.).
-    [200, 400, 600, 900, 1200, 2000].forEach(ms => {
-      setTimeout(() => {
-        console.log(`[ScrollDebug] scrollTop at +${ms}ms:`, container.scrollTop,
-          `(expected ${targetScrollTop}, drift ${container.scrollTop - targetScrollTop})`);
-      }, ms);
-    });
-    // ── END SCROLL DEBUG ──────────────────────────────────────────────────────
+    return () => cancelAnimationFrame(raf);
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
