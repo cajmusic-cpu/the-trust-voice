@@ -314,6 +314,7 @@ body { min-height: 100vh; background: var(--cream); }
 .conversation {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 40px 20px 16px;
   display: flex;
   flex-direction: column;
