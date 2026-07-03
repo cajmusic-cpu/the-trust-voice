@@ -48,14 +48,22 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
     const container = conversationRef.current;
     if (!answer || !container) return;
 
-    // Defer one frame so any browser-initiated scroll from the DOM mutation
-    // has already fired, then override with an instant assignment.
-    const raf = requestAnimationFrame(() => {
+    const scrollToAnswer = () => {
       const containerTop = container.getBoundingClientRect().top;
       const answerTop = answer.getBoundingClientRect().top;
       container.scrollTop = container.scrollTop + (answerTop - containerTop);
-    });
-    return () => cancelAnimationFrame(raf);
+    };
+
+    // Scroll immediately on the next frame, then re-apply at 200 ms to
+    // override any scrollTop drift caused by citation video elements loading
+    // and expanding after the first frame.
+    const raf = requestAnimationFrame(scrollToAnswer);
+    const timer = setTimeout(scrollToAnswer, 200);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
