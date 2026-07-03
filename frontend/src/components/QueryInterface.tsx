@@ -39,31 +39,14 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   const [error, setError] = useState('');
   const [topicsOpen, setTopicsOpen] = useState(false);
   const conversationRef = useRef<HTMLDivElement>(null);
-  const latestAnswerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (loading || turns.length === 0) return;
-    const answer = latestAnswerRef.current;
     const container = conversationRef.current;
-    if (!answer || !container) return;
-
-    const scrollToAnswer = () => {
-      const containerTop = container.getBoundingClientRect().top;
-      const answerTop = answer.getBoundingClientRect().top;
-      container.scrollTop = container.scrollTop + (answerTop - containerTop);
-    };
-
-    // Scroll immediately on the next frame, then re-apply at 200 ms to
-    // override any scrollTop drift caused by citation video elements loading
-    // and expanding after the first frame.
-    const raf = requestAnimationFrame(scrollToAnswer);
-    const timer = setTimeout(scrollToAnswer, 200);
-
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(timer);
-    };
+    if (!container) return;
+    // Turns render newest-first, so scrollTop=0 always shows the latest answer.
+    container.scrollTop = 0;
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
@@ -129,41 +112,6 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
           </div>
         )}
 
-        {turns.map((turn, i) => (
-          <div key={i} className="turn">
-            <div className="turn-question">
-              <span className="turn-label">You</span>
-              <p>{turn.question}</p>
-            </div>
-            <div className="turn-answer" ref={i === turns.length - 1 ? latestAnswerRef : null}>
-              <span className="turn-label">Trust Voice</span>
-              <div className="answer-text">
-                {renderAnswer(turn.answer, turn.citations)}
-              </div>
-              {turn.citations.length > 0 && (
-                <div className="citations">
-                  <p className="citations-heading">Sources</p>
-                  {turn.citations.map(c => (
-                    <div key={c.index} id={`citation-${i}-${c.index}`} className="citation-card">
-                      <div className="citation-meta">
-                        <span className="citation-index">[{c.index}]</span>
-                        <span className="citation-time">
-                          {formatTime(c.startTime)} – {formatTime(c.endTime)}
-                        </span>
-                        <span className="citation-speaker">
-                          {formatSpeaker(c.speaker)}
-                        </span>
-                      </div>
-                      <CitationVideo clientId={clientId} videoId={c.videoId} startTime={c.startTime} endTime={c.endTime} />
-                      <blockquote className="citation-quote">"{c.quote}"</blockquote>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
         {loading && (
           <div className="turn">
             <div className="turn-answer">
@@ -178,6 +126,44 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
         )}
 
         {error && <p className="inline-error">{error}</p>}
+
+        {[...turns].reverse().map((turn, reverseIdx) => {
+          const i = turns.length - 1 - reverseIdx;
+          return (
+            <div key={i} className="turn">
+              <div className="turn-question">
+                <span className="turn-label">You</span>
+                <p>{turn.question}</p>
+              </div>
+              <div className="turn-answer">
+                <span className="turn-label">Trust Voice</span>
+                <div className="answer-text">
+                  {renderAnswer(turn.answer, turn.citations)}
+                </div>
+                {turn.citations.length > 0 && (
+                  <div className="citations">
+                    <p className="citations-heading">Sources</p>
+                    {turn.citations.map(c => (
+                      <div key={c.index} id={`citation-${i}-${c.index}`} className="citation-card">
+                        <div className="citation-meta">
+                          <span className="citation-index">[{c.index}]</span>
+                          <span className="citation-time">
+                            {formatTime(c.startTime)} – {formatTime(c.endTime)}
+                          </span>
+                          <span className="citation-speaker">
+                            {formatSpeaker(c.speaker)}
+                          </span>
+                        </div>
+                        <CitationVideo clientId={clientId} videoId={c.videoId} startTime={c.startTime} endTime={c.endTime} />
+                        <blockquote className="citation-quote">"{c.quote}"</blockquote>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="input-bar">
