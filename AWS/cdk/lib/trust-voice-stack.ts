@@ -604,6 +604,13 @@ export class TrustVoiceStack extends cdk.Stack {
       description: 'Deploy React build: aws s3 sync dist/ s3://<bucket> --delete',
     });
 
+    // Grant the GitHub Actions deploy user access to sync the portal build to S3
+    // and invalidate the CloudFront distribution after each deploy.
+    const githubActionsUser = iam.User.fromUserName(this, 'GithubActionsUser', 'ttv-github-actions');
+    portalBucket.grantReadWrite(githubActionsUser);
+    portalBucket.grantDelete(githubActionsUser);
+    portalDistribution.grantCreateInvalidation(githubActionsUser);
+
     // ── CLOUDWATCH 403 ALARM ──────────────────────────────────────────────────
 
     const forbidden403Filter = new logs.MetricFilter(this, 'Forbidden403Filter', {
