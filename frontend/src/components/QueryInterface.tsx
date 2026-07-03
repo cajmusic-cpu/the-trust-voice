@@ -44,13 +44,26 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
 
   useEffect(() => {
     if (loading || turns.length === 0) return;
-    const container = conversationRef.current;
     const answer = latestAnswerRef.current;
-    if (!container || !answer) return;
-    // Scroll the conversation container directly so only it moves (not window or
-    // any overflow:hidden ancestor), and position the answer text at the top.
-    const delta = answer.getBoundingClientRect().top - container.getBoundingClientRect().top;
-    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' });
+    const container = conversationRef.current;
+    if (!answer || !container) return;
+
+    const scrollToAnswer = () => {
+      const containerTop = container.getBoundingClientRect().top;
+      const answerTop = answer.getBoundingClientRect().top;
+      container.scrollTop = container.scrollTop + (answerTop - containerTop);
+    };
+
+    // Scroll immediately on the next frame, then re-apply at 200 ms to
+    // override any scrollTop drift caused by citation video elements loading
+    // and expanding after the first frame.
+    const raf = requestAnimationFrame(scrollToAnswer);
+    const timer = setTimeout(scrollToAnswer, 200);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timer);
+    };
   }, [turns, loading]);
 
   async function handleSubmit(e?: FormEvent) {
