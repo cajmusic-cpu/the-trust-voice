@@ -98,9 +98,10 @@ export class TrustVoiceStack extends cdk.Stack {
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
-      // LITE tier required for auth event log streaming to CloudWatch.
-      userPoolTier: cognito.UserPoolTier.LITE,
     });
+    // LITE tier required for auth event log streaming to CloudWatch.
+    // L2 UserPool doesn't expose this property — set it via the L1 escape hatch.
+    (this.userPool.node.defaultChild as cognito.CfnUserPool).userPoolTier = 'LITE';
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,
@@ -125,7 +126,7 @@ export class TrustVoiceStack extends cdk.Stack {
       this, 'CognitoLogGroup', '/ttv/cognito/user-pool',
     );
 
-    new cognito.CfnUserPoolLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
+    new cognito.CfnLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
       userPoolId: this.userPool.userPoolId,
       logConfigurations: [{
         logLevel: 'INFO',
