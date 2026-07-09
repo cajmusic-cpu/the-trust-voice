@@ -119,20 +119,23 @@ export class TrustVoiceStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
 
     // ── COGNITO AUDIT LOGGING ─────────────────────────────────────────────────
-    // Stream auth events (sign-in, sign-out, token refresh) to CloudWatch.
-    // Requires LITE tier (set above). Log group was pre-created via CLI.
-
-    const cognitoLogGroup = logs.LogGroup.fromLogGroupName(
-      this, 'CognitoLogGroup', '/ttv/cognito/user-pool',
-    );
+    // Stream Cognito notification events (MFA OTP emails, password-reset
+    // emails) to CloudWatch. One notification fires per sign-in attempt, so
+    // this provides a correlated activity trail without PLUS-tier pricing.
+    //
+    // userAuthEvents (full sign-in success/failure stream) requires PLUS tier.
+    // userNotification is available on LITE and above.
+    //
+    // Note: logs.LogGroup.logGroupArn appends :* which Cognito's ARN
+    // validation rejects — construct the exact ARN explicitly instead.
 
     new cognito.CfnLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
       userPoolId: this.userPool.userPoolId,
       logConfigurations: [{
         logLevel: 'INFO',
-        eventSource: 'userAuthEvents',
+        eventSource: 'userNotification',
         cloudWatchLogsConfiguration: {
-          logGroupArn: cognitoLogGroup.logGroupArn,
+          logGroupArn: `arn:aws:logs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:log-group:/ttv/cognito/user-pool`,
         },
       }],
     });
