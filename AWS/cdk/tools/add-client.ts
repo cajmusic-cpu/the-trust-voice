@@ -33,6 +33,7 @@ import {
   PutBucketEncryptionCommand,
   PutBucketPolicyCommand,
   PutBucketCorsCommand,
+  PutBucketLoggingCommand,
   PutBucketNotificationConfigurationCommand,
   HeadBucketCommand,
 } from '@aws-sdk/client-s3';
@@ -143,7 +144,17 @@ async function configureBucket(name: string): Promise<void> {
     Policy: sslOnlyPolicy(name),
   }));
 
-  console.log(`  ✓ Configured ${name} (public access blocked, versioning, encryption, SSL-only policy)`);
+  await s3.send(new PutBucketLoggingCommand({
+    Bucket: name,
+    BucketLoggingStatus: {
+      LoggingEnabled: {
+        TargetBucket: 'ttv-access-logs-595028889888',
+        TargetPrefix: `${name}/`,
+      },
+    },
+  }));
+
+  console.log(`  ✓ Configured ${name} (public access blocked, versioning, encryption, SSL-only policy, access logging)`);
 }
 
 async function main(): Promise<void> {

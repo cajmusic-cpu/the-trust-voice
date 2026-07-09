@@ -99,6 +99,9 @@ export class TrustVoiceStack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
+    // LITE tier required for auth event log streaming to CloudWatch.
+    // L2 UserPool doesn't expose this property — set it via the L1 escape hatch.
+    (this.userPool.node.defaultChild as cognito.CfnUserPool).userPoolTier = 'LITE';
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,
@@ -114,6 +117,25 @@ export class TrustVoiceStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
+
+    // ── COGNITO AUDIT LOGGING ─────────────────────────────────────────────────
+    // Stream auth events (sign-in, sign-out, token refresh) to CloudWatch.
+    // Requires LITE tier (set above). Log group was pre-created via CLI.
+
+    const cognitoLogGroup = logs.LogGroup.fromLogGroupName(
+      this, 'CognitoLogGroup', '/ttv/cognito/user-pool',
+    );
+
+    new cognito.CfnLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
+      userPoolId: this.userPool.userPoolId,
+      logConfigurations: [{
+        logLevel: 'INFO',
+        eventSource: 'userAuthEvents',
+        cloudWatchLogsConfiguration: {
+          logGroupArn: cognitoLogGroup.logGroupArn,
+        },
+      }],
+    });
 
     // ── IAM ROLES ─────────────────────────────────────────────────────────────
     //
@@ -248,31 +270,31 @@ export class TrustVoiceStack extends cdk.Stack {
 
     const videoUrlLogs = new logs.LogGroup(this, 'VideoUrlLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-video-url',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const meLogs = new logs.LogGroup(this, 'MeLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-me',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const ingestLogs = new logs.LogGroup(this, 'IngestLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-ingest',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const processLogs = new logs.LogGroup(this, 'ProcessLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-process-transcript',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const queryLogs = new logs.LogGroup(this, 'QueryLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-query',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -304,7 +326,7 @@ export class TrustVoiceStack extends cdk.Stack {
 
     const uploadUrlLogs = new logs.LogGroup(this, 'UploadUrlLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-upload-url',
-      retention: logs.RetentionDays.ONE_MONTH,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
@@ -458,7 +480,7 @@ export class TrustVoiceStack extends cdk.Stack {
 
     const apiAccessLogs = new logs.LogGroup(this, 'ApiAccessLogs', {
       logGroupName: '/ttv/api-gateway/access',
-      retention: logs.RetentionDays.THREE_MONTHS,
+      retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
