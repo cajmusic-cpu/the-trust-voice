@@ -99,9 +99,9 @@ export class TrustVoiceStack extends cdk.Stack {
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
-    // LITE tier required for auth event log streaming to CloudWatch.
+    // PLUS tier required for userAuthEvents log streaming to CloudWatch.
     // L2 UserPool doesn't expose this property — set it via the L1 escape hatch.
-    (this.userPool.node.defaultChild as cognito.CfnUserPool).userPoolTier = 'LITE';
+    (this.userPool.node.defaultChild as cognito.CfnUserPool).userPoolTier = 'PLUS';
 
     this.userPoolClient = new cognito.UserPoolClient(this, 'UserPoolClient', {
       userPool: this.userPool,
@@ -119,23 +119,26 @@ export class TrustVoiceStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
 
     // ── COGNITO AUDIT LOGGING ─────────────────────────────────────────────────
-    // Stream auth events (sign-in, sign-out, token refresh) to CloudWatch.
-    // Requires LITE tier (set above). Log group was pre-created via CLI.
+    // Stream full auth events (sign-in success/failure, MFA pass/fail,
+    // sign-out, token refresh) to CloudWatch. Requires PLUS tier (set above).
+    //
+    // Note: logs.LogGroup.logGroupArn appends :* which Cognito's ARN
+    // validation rejects — construct the exact ARN explicitly instead.
+    // DependsOn forces CloudFormation to finish the UserPool PLUS upgrade
+    // before updating the log delivery config (ordering not inferred from Ref
+    // when the UserPool already exists in the stack).
 
-    const cognitoLogGroup = logs.LogGroup.fromLogGroupName(
-      this, 'CognitoLogGroup', '/ttv/cognito/user-pool',
-    );
-
-    new cognito.CfnLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
+    const logDelivery = new cognito.CfnLogDeliveryConfiguration(this, 'UserPoolLogDelivery', {
       userPoolId: this.userPool.userPoolId,
       logConfigurations: [{
         logLevel: 'INFO',
         eventSource: 'userAuthEvents',
         cloudWatchLogsConfiguration: {
-          logGroupArn: cognitoLogGroup.logGroupArn,
+          logGroupArn: `arn:aws:logs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:log-group:/ttv/cognito/user-pool`,
         },
       }],
     });
+    logDelivery.addDependency(this.userPool.node.defaultChild as cognito.CfnUserPool);
 
     // ── IAM ROLES ─────────────────────────────────────────────────────────────
     //
