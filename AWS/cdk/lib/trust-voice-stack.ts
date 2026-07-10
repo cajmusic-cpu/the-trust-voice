@@ -97,6 +97,7 @@ export class TrustVoiceStack extends cdk.Stack {
         tempPasswordValidity: cdk.Duration.days(3),
       },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      advancedSecurityMode: cognito.AdvancedSecurityMode.AUDIT,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
     // PLUS tier required for userAuthEvents log streaming to CloudWatch.
