@@ -57,7 +57,7 @@ if (!clientId || !clientName) {
   process.exit(1);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 if (!UUID_RE.test(clientId)) {
   console.error(`clientId must be a UUID. Got: "${clientId}"`);
   console.error('Generate one at https://www.uuidgenerator.net/');
