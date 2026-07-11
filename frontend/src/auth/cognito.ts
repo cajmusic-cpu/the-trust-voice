@@ -126,5 +126,9 @@ export async function verifySoftwareToken(
 }
 
 export function signOut(): void {
-  pool.getCurrentUser()?.signOut();
+  const user = pool.getCurrentUser();
+  if (!user) return;
+  // Revoke the refresh token server-side; clear local state regardless of network outcome.
+  user.globalSignOut({ onSuccess: () => {}, onFailure: () => {} });
+  user.signOut();
 }

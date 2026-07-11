@@ -114,6 +114,7 @@ export class TrustVoiceStack extends cdk.Stack {
       accessTokenValidity: cdk.Duration.minutes(30),
       idTokenValidity: cdk.Duration.minutes(30),
       refreshTokenValidity: cdk.Duration.days(1),
+      enableTokenRevocation: true,
     });
 
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
@@ -427,6 +428,7 @@ export class TrustVoiceStack extends cdk.Stack {
     ingestFunction.addPermission('AllowS3VideoInvoke', {
       principal: new iam.ServicePrincipal('s3.amazonaws.com'),
       sourceAccount: this.account,
+      sourceArn: `arn:aws:s3:::ttv-*-videos`,
     });
 
     // ── PROCESS TRANSCRIPT LAMBDA ─────────────────────────────────────────────
@@ -464,6 +466,7 @@ export class TrustVoiceStack extends cdk.Stack {
     processTranscriptFunction.addPermission('AllowS3TranscriptInvoke', {
       principal: new iam.ServicePrincipal('s3.amazonaws.com'),
       sourceAccount: this.account,
+      sourceArn: `arn:aws:s3:::ttv-*-transcripts`,
     });
 
     // ── API GATEWAY ───────────────────────────────────────────────────────────
