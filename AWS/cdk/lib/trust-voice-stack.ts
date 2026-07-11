@@ -581,6 +581,16 @@ export class TrustVoiceStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    // CloudFront requires ACLs enabled on the log bucket for log delivery.
+    const cfAccessLogsBucket = new s3.Bucket(this, 'CloudFrontAccessLogsBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      enforceSSL: true,
+      objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_PREFERRED,
+      lifecycleRules: [{ expiration: cdk.Duration.days(365) }],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     const portalCert = acm.Certificate.fromCertificateArn(
       this,
       'PortalCertificate',
@@ -615,7 +625,9 @@ export class TrustVoiceStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-      enableLogging: false,
+      enableLogging: true,
+      logBucket: cfAccessLogsBucket,
+      logFilePrefix: 'portal/',
     });
 
     new cdk.CfnOutput(this, 'PortalDistributionDomain', {
