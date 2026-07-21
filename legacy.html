@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Trust Voice &mdash; Your voice. Preserved forever.</title>
+<meta name="description" content="A professionally recorded interview becomes a private, searchable archive. Your family asks a question &mdash; and hears the answer in your own words.">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="The Trust Voice &mdash; Your voice. Preserved forever.">
+<meta property="og:description" content="A professionally recorded interview becomes a private, searchable archive. Your family asks a question &mdash; and hears the answer in your own words.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="TODO-og-image.jpg">
+<!-- Meta Pixel — replace META_PIXEL_ID with your pixel ID before going live -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', 'META_PIXEL_ID');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel -->
+<style>
+  :root {
+    --navy: #1B2A4A;
+    --navy-deep: #14203A;
+    --navy-line: #2C3D63;
+    --gold: #B08D3E;
+    --gold-soft: #C9A968;
+    --cream: #F7F4EE;
+    --cream-deep: #EFEAE0;
+    --ink: #2A3247;
+    --ink-soft: #5A6378;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans: Calibri, 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); color: var(--ink); background: var(--cream); font-size: 17px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+  ::selection { background: var(--gold); color: #fff; }
+
+  /* Focus ring — gold, visible on all interactive elements */
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* ---------- Header ---------- */
+  header { background: var(--navy); padding: 20px 0; }
+  .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .wordmark { font-family: var(--serif); font-size: 20px; letter-spacing: 0.18em; color: #fff; text-transform: uppercase; text-decoration: none; }
+  .wordmark span { color: var(--gold); }
+  .header-cta {
+    font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--gold-soft); text-decoration: none; border: 1px solid var(--gold);
+    padding: 10px 20px; transition: background 0.2s, color 0.2s; white-space: nowrap;
+  }
+  .header-cta:hover, .header-cta:focus-visible { background: var(--gold); color: var(--navy); outline-offset: 3px; }
+
+  /* ---------- Hero ---------- */
+  .hero { background: var(--navy); color: #fff; padding: 72px 0 88px; }
+  .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 64px; align-items: center; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-soft);
+    display: flex; align-items: center; gap: 14px; margin-bottom: 28px;
+  }
+  .eyebrow::before { content: ""; width: 36px; height: 1px; background: var(--gold); flex: none; }
+  h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.6vw, 52px); line-height: 1.16; color: #fff; }
+  h1 em { font-style: italic; color: var(--gold-soft); }
+  .hero-sub { margin-top: 26px; font-size: 18px; line-height: 1.7; color: #C6CCDA; max-width: 52ch; }
+  .hero-sub strong { color: #fff; font-weight: 600; }
+  .hero-actions { margin-top: 38px; display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+  .btn-gold {
+    display: inline-block; background: var(--gold); color: var(--navy); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; text-decoration: none; padding: 17px 34px;
+    border: none; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-gold:hover, .btn-gold:focus-visible { background: var(--gold-soft); outline-offset: 3px; }
+  .btn-gold:disabled { opacity: 0.6; cursor: default; }
+  .hero-note { font-size: 14px; color: #8E97AB; }
+
+  /* ---------- Demo card ---------- */
+  .demo-card {
+    background: var(--navy-deep); border: 1px solid var(--navy-line);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  .demo-head {
+    padding: 18px 26px; border-bottom: 1px solid var(--navy-line);
+    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-soft);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .demo-hint { color: #8E97AB; letter-spacing: 0.08em; text-transform: none; font-size: 12px; }
+  .demo-body { padding: 26px; }
+  .demo-label { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #7C86A0; margin-bottom: 10px; }
+  .demo-questions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+  .q-chip {
+    text-align: left; font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.5;
+    color: #D5DAE6; background: transparent; border: 1px solid var(--navy-line);
+    padding: 12px 16px; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s;
+  }
+  .q-chip:hover { border-color: var(--gold); }
+  .q-chip[aria-pressed="true"] { border-color: var(--gold); background: rgba(176,141,62,0.10); color: #fff; }
+  .q-chip:focus-visible { outline: 2px solid var(--gold-soft); outline-offset: 2px; }
+  .demo-answer-block { border-top: 1px solid var(--navy-line); padding-top: 22px; min-height: 210px; }
+  .demo-answer { font-size: 15.5px; line-height: 1.75; color: #E8EBF2; }
+  .demo-answer.fade { animation: rise 0.45s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .demo-stamp {
+    margin-top: 20px; display: inline-flex; align-items: center; gap: 10px;
+    border: 1px solid var(--gold); color: var(--gold-soft);
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; padding: 11px 16px;
+  }
+  .demo-foot { padding: 14px 26px; border-top: 1px solid var(--navy-line); font-size: 11.5px; letter-spacing: 0.06em; color: #7C86A0; }
+
+  /* ---------- Ask / Don't search ---------- */
+  .ask { padding: 96px 0; background: var(--cream); }
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; align-items: start; }
+  .kicker { font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .kicker::before { content: ""; width: 36px; height: 1px; background: var(--gold); flex: none; }
+  h2 { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 40px); line-height: 1.2; color: var(--navy); }
+  h2 em { font-style: italic; color: var(--gold); }
+  .ask-copy p { margin-top: 20px; color: var(--ink-soft); max-width: 56ch; }
+  .ask-copy p strong { color: var(--navy); }
+  .contrast { margin-top: 8px; display: flex; flex-direction: column; border: 1px solid var(--cream-deep); background: #fff; }
+  .contrast-row { display: grid; grid-template-columns: 130px 1fr; gap: 20px; padding: 26px 30px; align-items: baseline; }
+  .contrast-row + .contrast-row { border-top: 1px solid var(--cream-deep); }
+  .contrast-tag { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; }
+  .contrast-row.no .contrast-tag { color: #A8534B; }
+  .contrast-row.yes .contrast-tag { color: var(--gold); }
+  .contrast-row h3 { font-family: var(--serif); font-weight: 400; font-size: 19px; color: var(--navy); margin-bottom: 6px; }
+  .contrast-row p { font-size: 15px; color: var(--ink-soft); margin: 0; }
+
+  /* ---------- Process ---------- */
+  .process { background: #fff; padding: 96px 0; border-top: 1px solid var(--cream-deep); border-bottom: 1px solid var(--cream-deep); }
+  .steps { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0; margin-top: 56px; border: 1px solid var(--cream-deep); }
+  .step { padding: 40px 34px 46px; border-left: 1px solid var(--cream-deep); }
+  .step:first-child { border-left: none; }
+  .step-num { font-family: var(--serif); font-size: 40px; color: var(--cream-deep); line-height: 1; }
+  .step h3 { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--navy); margin: 22px 0 14px; font-weight: 700; }
+  .step p { font-size: 15.5px; color: var(--ink-soft); }
+
+  /* ---------- Why it matters ---------- */
+  .why { background: var(--navy); color: #fff; padding: 96px 0; }
+  .why .kicker { color: var(--gold-soft); }
+  .why .kicker::before { background: var(--gold-soft); }
+  .why h2 { color: #fff; }
+  .why-lede { margin-top: 18px; font-family: var(--serif); font-style: italic; font-size: 19px; color: var(--gold-soft); }
+  .pillars { margin-top: 54px; display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 40px; }
+  .pillar { border-top: 1px solid var(--gold); padding-top: 24px; }
+  .pillar h3 { font-family: var(--serif); font-weight: 400; font-size: 21px; color: #fff; margin-bottom: 12px; }
+  .pillar p { font-size: 15.5px; line-height: 1.7; color: #B9C0D0; }
+
+  /* ---------- Contact / Form ---------- */
+  .contact { padding: 100px 0 110px; background: var(--cream); }
+  .contact-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 72px; align-items: start; }
+  .contact-copy p { margin-top: 20px; color: var(--ink-soft); max-width: 48ch; }
+  .quiet-list { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; }
+  .quiet-item { display: flex; gap: 14px; font-size: 15.5px; color: var(--ink-soft); }
+  .quiet-item::before { content: "\2014"; color: var(--gold); flex: none; }
+  form { background: #fff; border: 1px solid var(--cream-deep); padding: 44px 42px 48px; }
+  .form-title { font-family: var(--serif); font-size: 24px; color: var(--navy); margin-bottom: 6px; }
+  .form-sub { font-size: 14.5px; color: var(--ink-soft); margin-bottom: 30px; }
+  .field { margin-bottom: 22px; }
+  label { display: block; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--navy); font-weight: 700; margin-bottom: 9px; }
+  label .opt { color: var(--ink-soft); font-weight: 400; text-transform: none; letter-spacing: 0.02em; }
+  input[type="text"], input[type="email"], input[type="tel"], select {
+    width: 100%; font-family: var(--sans); font-size: 16px; color: var(--ink);
+    background: var(--cream); border: 1px solid var(--cream-deep); padding: 14px 16px;
+    transition: border-color 0.2s; appearance: none; border-radius: 0;
+  }
+  select {
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23B08D3E' stroke-width='1.6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 16px center; padding-right: 42px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 0; border-color: var(--gold); }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+  .form-btn { width: 100%; margin-top: 8px; font-size: 14px; }
+  .form-fine { margin-top: 18px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+  .form-error { display: none; margin-bottom: 18px; font-size: 14px; color: #A8534B; border: 1px solid #A8534B; padding: 12px 16px; }
+  .form-error.show { display: block; }
+  .form-success { display: none; text-align: center; padding: 40px 10px; }
+  .form-success.show { display: block; animation: rise 0.45s ease both; }
+  .form-success .mark { font-family: var(--serif); font-size: 40px; color: var(--gold); }
+  .form-success h3 { font-family: var(--serif); font-weight: 400; font-size: 24px; color: var(--navy); margin: 14px 0 10px; }
+  .form-success p { font-size: 15.5px; color: var(--ink-soft); }
+
+  /* ---------- Footer ---------- */
+  footer { background: var(--navy-deep); color: #8E97AB; padding: 44px 0 52px; font-size: 13.5px; line-height: 1.7; }
+  .foot-row { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+  .foot-mark { font-family: var(--serif); letter-spacing: 0.18em; text-transform: uppercase; color: #fff; font-size: 15px; }
+  .foot-mark span { color: var(--gold); }
+  .disclaimer { max-width: 62ch; margin-top: 14px; }
+  .foot-right { text-align: right; }
+  .foot-right p + p { margin-top: 6px; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 960px) {
+    .hero-grid, .split, .contact-grid { grid-template-columns: 1fr; gap: 48px; }
+    .steps { grid-template-columns: 1fr; }
+    .step { border-left: none; border-top: 1px solid var(--cream-deep); }
+    .step:first-child { border-top: none; }
+    .pillars { grid-template-columns: 1fr; gap: 32px; }
+    .hero { padding: 56px 0 64px; }
+    .ask, .process, .why { padding: 72px 0; }
+    .contact { padding: 72px 0 84px; }
+    .foot-right { text-align: left; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    form { padding: 32px 24px 36px; }
+    .contrast-row { grid-template-columns: 1fr; gap: 8px; padding: 22px; }
+    .header-cta { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== HEADER ===================== -->
+<header>
+  <div class="wrap header-row">
+    <span class="wordmark">The <span>Trust</span> Voice</span>
+    <a class="header-cta" href="#contact" data-cta>Request a private conversation</a>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Legacy preservation &middot; Family continuity</p>
+      <h1>Your documents explain what should happen. <em>Your voice preserves why.</em></h1>
+      <p class="hero-sub">A single professionally recorded interview becomes a private, secure archive of your values and reasoning. When your trustee or family asks a question &mdash; decades from now &mdash; they receive <strong>your answer, in your own recorded words, with your video paused at the exact moment you spoke</strong>. Never hours of footage. One question. One answer. Your voice.</p>
+      <div class="hero-actions">
+        <a class="btn-gold" href="#contact" data-cta>Request a private conversation</a>
+        <span class="hero-note">Serving the Charlotte &amp; Charleston areas</span>
+      </div>
+    </div>
+
+    <div class="demo-card" aria-label="Example interaction demonstration">
+      <div class="demo-head">
+        <span>Example interaction</span>
+        <span class="demo-hint">Choose a question</span>
+      </div>
+      <div class="demo-body">
+        <p class="demo-label">A trustee asks</p>
+        <div class="demo-questions" role="group" aria-label="Sample trustee questions">
+          <button class="q-chip" aria-pressed="true" data-q="0">&ldquo;How would Harold want the trust to think about a beneficiary going through a rough stretch, versus someone who&rsquo;s struggled for years?&rdquo;</button>
+          <button class="q-chip" aria-pressed="false" data-q="1">&ldquo;How did Harold feel about distributions funding a new business?&rdquo;</button>
+          <button class="q-chip" aria-pressed="false" data-q="2">&ldquo;What did Harold believe this trust was ultimately for?&rdquo;</button>
+        </div>
+        <div class="demo-answer-block" aria-live="polite" aria-atomic="true">
+          <p class="demo-label">Harold answers</p>
+          <p class="demo-answer" id="demoAnswer"></p>
+          <span class="demo-stamp">
+            <svg width="10" height="12" viewBox="0 0 10 12" aria-hidden="true"><path d="M0 0l10 6-10 6z" fill="#B08D3E"/></svg>
+            <span id="demoStamp"></span>
+          </span>
+        </div>
+      </div>
+      <div class="demo-foot">Drawn from recorded interview &middot; Verified citation &middot; Illustrative example</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ASK / DON'T SEARCH ===================== -->
+<section class="ask">
+  <div class="wrap split">
+    <div class="ask-copy">
+      <p class="kicker">Ask. Don&rsquo;t search.</p>
+      <h2>Not hours of video. <em>The exact moment.</em></h2>
+      <p>The interview is comprehensive &mdash; values, family philosophy, specific scenarios, questions designed to anticipate decisions decades away. But no one will ever sit through it end to end, and no one has to.</p>
+      <p><strong>The archive is built to be asked.</strong> A trustee types a question in plain language. The system finds what the grantor actually said on that subject and responds in the grantor&rsquo;s own recorded words &mdash; never a summary, never a guess &mdash; with the video cued to the precise moment. The answer is not an interpretation. It is the grantor, ready to speak.</p>
+    </div>
+    <div class="contrast" role="list">
+      <div class="contrast-row no" role="listitem">
+        <span class="contrast-tag" aria-label="Not this approach">Not this</span>
+        <div>
+          <h3>A box of tapes</h3>
+          <p>Hours of footage to scrub through, hoping the grantor addressed the question somewhere.</p>
+        </div>
+      </div>
+      <div class="contrast-row no" role="listitem">
+        <span class="contrast-tag" aria-label="Not this approach">Not this</span>
+        <div>
+          <h3>A summary written by someone else</h3>
+          <p>A paraphrase of what the grantor &ldquo;probably meant,&rdquo; open to argument.</p>
+        </div>
+      </div>
+      <div class="contrast-row yes" role="listitem">
+        <span class="contrast-tag" aria-label="This approach">This</span>
+        <div>
+          <h3>A question, answered in their voice</h3>
+          <p>Ask anything. Receive the grantor&rsquo;s own words, cited to the exact moment on video.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== PROCESS ===================== -->
+<section class="process">
+  <div class="wrap">
+    <p class="kicker">The process</p>
+    <h2>Three steps to a <em>lasting voice.</em></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num" aria-hidden="true">01</div>
+        <h3>The interview</h3>
+        <p>In a single structured day, our specialists lead you through a comprehensive curriculum &mdash; values, family dynamics, financial philosophy, and forward-looking scenarios. Every session is professionally recorded on video.</p>
+      </div>
+      <div class="step">
+        <div class="step-num" aria-hidden="true">02</div>
+        <h3>Your private archive</h3>
+        <p>Your recordings become a secure, searchable archive built exclusively from your own words &mdash; isolated to your family, protected with bank-level security, and maintained for as long as the trust endures.</p>
+      </div>
+      <div class="step">
+        <div class="step-num" aria-hidden="true">03</div>
+        <h3>Your voice, on demand</h3>
+        <p>When a trustee or beneficiary asks a question, the answer arrives in your recorded words &mdash; and your video appears, paused at the exact moment you spoke to that topic. One tap, and they see and hear it for themselves.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== WHY IT MATTERS ===================== -->
+<section class="why">
+  <div class="wrap">
+    <p class="kicker">Why it matters</p>
+    <h2>The case for preserving your voice</h2>
+    <p class="why-lede">Estate planning documents explain what should happen. The Trust Voice preserves why.</p>
+    <div class="pillars">
+      <div class="pillar">
+        <h3>Emotional continuity</h3>
+        <p>Beneficiaries don&rsquo;t just read your wishes. They see and hear you delivering them &mdash; a generation from now, and the one after that.</p>
+      </div>
+      <div class="pillar">
+        <h3>Real support for hard decisions</h3>
+        <p>Whoever administers your trust will face gray-area requests and quiet pressure to say yes. Your recorded context gives them something real to lean on &mdash; and the confidence that they are honoring your intentions.</p>
+      </div>
+      <div class="pillar">
+        <h3>Litigation deterrence</h3>
+        <p>A contemporaneous, well-reasoned record of your own thinking makes a future contest a harder, costlier case to bring. It removes the ambiguity that disputes are built on &mdash; before one ever starts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CONTACT ===================== -->
+<section class="contact" id="contact">
+  <div class="wrap contact-grid">
+    <div class="contact-copy">
+      <p class="kicker">A private conversation</p>
+      <h2>Begin with a <em>quiet conversation.</em></h2>
+      <p>There is no obligation and nothing to prepare. We&rsquo;ll walk you through how the interview works, answer your questions, and help you decide whether this belongs in your family&rsquo;s planning.</p>
+      <div class="quiet-list">
+        <div class="quiet-item">Complements your trust document and your attorney&rsquo;s role. Never replaces either.</div>
+        <div class="quiet-item">Completely private. Your archive is accessible only to those you authorize.</div>
+        <div class="quiet-item">Now serving families in the Charlotte and Charleston areas.</div>
+      </div>
+    </div>
+
+    <form
+      id="landingForm"
+      name="landing-inquiry"
+      method="POST"
+      data-netlify="true"
+      netlify-honeypot="bot-field"
+      novalidate
+    >
+      <!-- Netlify form detection -->
+      <input type="hidden" name="form-name" value="landing-inquiry">
+      <!-- Honeypot — filled by bots, ignored by humans -->
+      <p class="visually-hidden">
+        <label>Leave this blank: <input name="bot-field" tabindex="-1" autocomplete="off"></label>
+      </p>
+      <!-- UTM hidden inputs — populated by JS on page load -->
+      <input type="hidden" name="utm_source" id="f_utm_source">
+      <input type="hidden" name="utm_medium" id="f_utm_medium">
+      <input type="hidden" name="utm_campaign" id="f_utm_campaign">
+      <input type="hidden" name="utm_content" id="f_utm_content">
+      <input type="hidden" name="utm_term" id="f_utm_term">
+
+      <div id="formFields">
+        <p class="form-title">Request a private conversation</p>
+        <p class="form-sub">We respond personally, typically within one business day.</p>
+
+        <div class="form-error" id="formError" role="alert">
+          Please complete your name, email, and the planning question below.
+        </div>
+        <div class="form-error" id="formNetworkError" role="alert">
+          Something went wrong sending your request. Please try again, or email us directly at <a href="mailto:info@thetrustvoice.com" style="color:inherit">info@thetrustvoice.com</a>.
+        </div>
+
+        <div class="field">
+          <label for="fName">Full name</label>
+          <input type="text" id="fName" name="name" autocomplete="name" required>
+        </div>
+        <div class="field">
+          <label for="fEmail">Email</label>
+          <input type="email" id="fEmail" name="email" autocomplete="email" required>
+        </div>
+        <div class="field">
+          <label for="fPhone">Phone <span class="opt">(optional)</span></label>
+          <input type="tel" id="fPhone" name="phone" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label for="fPlanning">Where are you in your planning?</label>
+          <select id="fPlanning" name="planning" required>
+            <option value="" selected disabled>Select one</option>
+            <option value="A trust is already in place">A trust is already in place</option>
+            <option value="A trust is currently being planned">A trust is currently being planned</option>
+            <option value="Inquiring on behalf of a parent or family member">Inquiring on behalf of a parent or family member</option>
+            <option value="I'm an attorney or advisor inquiring for clients">I&rsquo;m an attorney or advisor inquiring for clients</option>
+            <option value="Exploring for the future">Exploring for the future</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fArea">Your area</label>
+          <select id="fArea" name="area">
+            <option value="Charlotte area">Charlotte area</option>
+            <option value="Charleston area">Charleston area</option>
+            <option value="Elsewhere">Elsewhere</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-gold form-btn" id="formSubmit">Request a private conversation</button>
+        <p class="form-fine">Your information is held in confidence and never shared. The Trust Voice is a legacy-preservation service, not a law firm, and does not provide legal advice.</p>
+      </div>
+
+      <div class="form-success" id="formSuccess" aria-live="polite">
+        <div class="mark">&#10022;</div>
+        <h3>Thank you.</h3>
+        <p>Your request has been received. We&rsquo;ll reach out personally, typically within one business day, to arrange a time that suits you.</p>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap foot-row">
+    <div>
+      <p class="foot-mark">The <span>Trust</span> Voice</p>
+      <p class="disclaimer">The Trust Voice is not a legal instrument and does not replace, amend, or control your trust document, your trustee, or your attorney&rsquo;s counsel. It preserves your recorded context alongside the legal structure your advisors have built.</p>
+    </div>
+    <div class="foot-right">
+      <p>Preserving wisdom. Not just wealth.</p>
+      <p>&copy; 2026 The Trust Voice &middot; Fort Mill, South Carolina</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Demo card ──────────────────────────────────────────────────────────────
+  var demoData = [
+    {
+      a: '“If someone hits a rough patch — loses a job, goes through a divorce, gets sick — that’s not a character flaw, that’s life. I’d want the trust to be there for that person without hesitation. But if the pattern never changes year after year, that’s a different conversation, and I’d want my trustee to have the courage to ask why.”',
+      s: 'Video appears paused at this moment · Session 2'
+    },
+    {
+      a: '“I believe distributions should support ambition, not replace it. If one of the kids or grandkids has a real plan — something they’ve thought through, something they’re willing to put their own sweat into — I want this trust to be the wind at their back, not a hammock.”',
+      s: 'Video appears paused at this moment · Session 2'
+    },
+    {
+      a: '“The money was never the point. The point was that the people I love have room to build good lives — to take the right risks, weather the bad years, and stay a family while they do it. If this trust ever starts pulling them apart instead of holding them together, someone has misread my intentions.”',
+      s: 'Video appears paused at this moment · Session 1'
+    }
+  ];
+
+  var chips = document.querySelectorAll('.q-chip');
+  var answerEl = document.getElementById('demoAnswer');
+  var stampEl = document.getElementById('demoStamp');
+
+  function setDemo(i) {
+    chips.forEach(function (c) {
+      c.setAttribute('aria-pressed', String(parseInt(c.dataset.q, 10) === i));
+    });
+    answerEl.classList.remove('fade');
+    void answerEl.offsetWidth; // reflow to restart animation
+    answerEl.textContent = demoData[i].a;
+    stampEl.textContent = demoData[i].s;
+    answerEl.classList.add('fade');
+  }
+
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () { setDemo(parseInt(c.dataset.q, 10)); });
+  });
+
+  setDemo(0);
+
+  // ── UTM capture ───────────────────────────────────────────────────────────
+  // Read from URL on page load; persist to sessionStorage so values survive
+  // in-page navigation; write to hidden form inputs.
+  var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+  var utms = {};
+
+  try {
+    var saved = sessionStorage.getItem('ttv_landing_utms');
+    if (saved) utms = JSON.parse(saved);
+  } catch (e) {}
+
+  var qs = new URLSearchParams(window.location.search);
+  UTM_KEYS.forEach(function (k) {
+    var v = qs.get(k);
+    if (v) utms[k] = v;
+  });
+
+  try { sessionStorage.setItem('ttv_landing_utms', JSON.stringify(utms)); } catch (e) {}
+
+  UTM_KEYS.forEach(function (k) {
+    var el = document.getElementById('f_' + k);
+    if (el && utms[k]) el.value = utms[k];
+  });
+
+  // ── Meta Pixel: fire Contact on any CTA click that scrolls to the form ────
+  document.querySelectorAll('[data-cta]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (typeof fbq === 'function') fbq('track', 'Contact');
+    });
+  });
+
+  // ── Form submission ───────────────────────────────────────────────────────
+  var form = document.getElementById('landingForm');
+  var formFields = document.getElementById('formFields');
+  var formSuccess = document.getElementById('formSuccess');
+  var formError = document.getElementById('formError');
+  var formNetworkError = document.getElementById('formNetworkError');
+  var submitBtn = document.getElementById('formSubmit');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+
+    var name = document.getElementById('fName').value.trim();
+    var email = document.getElementById('fEmail').value.trim();
+    var planning = document.getElementById('fPlanning').value;
+    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    // Client-side validation
+    formError.classList.remove('show');
+    formNetworkError.classList.remove('show');
+
+    if (!name || !emailOk || !planning) {
+      formError.classList.add('show');
+      formError.focus();
+      return;
+    }
+
+    // Disable button while submitting
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      var res = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(form)).toString()
+      });
+
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+
+      // Fire Lead pixel event — only on confirmed successful submission
+      if (typeof fbq === 'function') fbq('track', 'Lead');
+
+      // Show success state
+      formFields.style.display = 'none';
+      formSuccess.classList.add('show');
+
+    } catch (err) {
+      formNetworkError.classList.add('show');
+      formNetworkError.focus();
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Request a private conversation';
+    }
+  });
+}());
+</script>
+
+</body>
+</html>
