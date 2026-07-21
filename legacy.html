@@ -29,8 +29,8 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
 <!-- End Meta Pixel -->
 <style>
   :root {
-    --navy: #1B2A4A;
-    --navy-deep: #14203A;
+    --navy: #1B2E45;
+    --navy-deep: #0F1E2E;
     --navy-line: #2C3D63;
     --gold: #B08D3E;
     --gold-soft: #C9A968;
@@ -55,7 +55,7 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
   :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
   /* ---------- Header ---------- */
-  header { background: var(--navy); padding: 20px 0; }
+  header { background: var(--navy-deep); padding: 20px 0; }
   .header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .wordmark { font-family: var(--serif); font-size: 20px; letter-spacing: 0.18em; color: #fff; text-transform: uppercase; text-decoration: none; }
   .wordmark span { color: var(--gold); }
@@ -67,7 +67,7 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
   .header-cta:hover, .header-cta:focus-visible { background: var(--gold); color: var(--navy); outline-offset: 3px; }
 
   /* ---------- Hero ---------- */
-  .hero { background: var(--navy); color: #fff; padding: 72px 0 88px; }
+  .hero { background: var(--navy-deep); color: #fff; padding: 72px 0 88px; }
   .hero-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 64px; align-items: center; }
   .eyebrow {
     font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-soft);
@@ -90,11 +90,11 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
 
   /* ---------- Demo card ---------- */
   .demo-card {
-    background: var(--navy-deep); border: 1px solid var(--navy-line);
+    background: #0A1825; border: 1px solid rgba(201,168,76,0.22);
     box-shadow: 0 30px 60px rgba(0,0,0,0.35);
   }
   .demo-head {
-    padding: 18px 26px; border-bottom: 1px solid var(--navy-line);
+    padding: 18px 26px; border-bottom: 1px solid rgba(201,168,76,0.2);
     font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold-soft);
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
   }
@@ -104,13 +104,13 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
   .demo-questions { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
   .q-chip {
     text-align: left; font-family: var(--serif); font-style: italic; font-size: 15px; line-height: 1.5;
-    color: #D5DAE6; background: transparent; border: 1px solid var(--navy-line);
+    color: #D5DAE6; background: transparent; border: 1px solid rgba(255,255,255,0.1);
     padding: 12px 16px; cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s;
   }
   .q-chip:hover { border-color: var(--gold); }
   .q-chip[aria-pressed="true"] { border-color: var(--gold); background: rgba(176,141,62,0.10); color: #fff; }
   .q-chip:focus-visible { outline: 2px solid var(--gold-soft); outline-offset: 2px; }
-  .demo-answer-block { border-top: 1px solid var(--navy-line); padding-top: 22px; min-height: 210px; }
+  .demo-answer-block { border-top: 1px solid rgba(255,255,255,0.07); padding-top: 22px; min-height: 210px; }
   .demo-answer { font-size: 15.5px; line-height: 1.75; color: #E8EBF2; }
   .demo-answer.fade { animation: rise 0.45s ease both; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -119,7 +119,7 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
     border: 1px solid var(--gold); color: var(--gold-soft);
     font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; padding: 11px 16px;
   }
-  .demo-foot { padding: 14px 26px; border-top: 1px solid var(--navy-line); font-size: 11.5px; letter-spacing: 0.06em; color: #7C86A0; }
+  .demo-foot { padding: 14px 26px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11.5px; letter-spacing: 0.06em; color: #7C86A0; }
 
   /* ---------- Ask / Don't search ---------- */
   .ask { padding: 96px 0; background: var(--cream); }
@@ -149,7 +149,7 @@ src="https://www.facebook.com/tr?id=META_PIXEL_ID&ev=PageView&noscript=1"
   .step p { font-size: 15.5px; color: var(--ink-soft); }
 
   /* ---------- Why it matters ---------- */
-  .why { background: var(--navy); color: #fff; padding: 96px 0; }
+  .why { background: var(--navy-deep); color: #fff; padding: 96px 0; }
   .why .kicker { color: var(--gold-soft); }
   .why .kicker::before { background: var(--gold-soft); }
   .why h2 { color: #fff; }
