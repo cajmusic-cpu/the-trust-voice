@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Trust Voice &mdash; Preview</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    --navy-deep: #0F1E2E;
+    --navy:      #1B2E45;
+    --navy-line: #2C3D63;
+    --gold:      #B08D3E;
+    --gold-soft: #C9A968;
+    --cream:     #F7F4EE;
+    --serif: Georgia, 'Times New Roman', serif;
+    --sans:  Calibri, 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    background: var(--navy-deep);
+    color: var(--cream);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+  /* ── Header ── */
+  header {
+    padding: 28px 24px;
+    display: flex;
+    justify-content: center;
+    border-bottom: 1px solid var(--navy-line);
+  }
+  .wordmark {
+    font-family: var(--serif);
+    font-size: 18px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cream);
+    text-decoration: none;
+  }
+  .wordmark span { color: var(--gold); }
+
+  /* ── Main ── */
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px 24px 80px;
+  }
+
+  /* ── Headline ── */
+  .headline {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.2;
+    text-align: center;
+    color: var(--cream);
+    max-width: 20ch;
+    margin-bottom: 48px;
+  }
+  .headline em {
+    font-style: italic;
+    color: var(--gold-soft);
+  }
+
+  /* ── Video ── */
+  .video-wrap {
+    width: 100%;
+    max-width: 860px;
+    background: #000;
+    border: 1px solid var(--navy-line);
+  }
+  .video-wrap video {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 540px;
+    object-fit: contain;
+  }
+
+  /* ── Tagline ── */
+  .tagline {
+    margin-top: 44px;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(16px, 2vw, 20px);
+    color: var(--gold-soft);
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  /* ── CTA button ── */
+  .cta {
+    display: inline-block;
+    margin-top: 36px;
+    padding: 12px 28px;
+    font-family: var(--sans);
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-soft);
+    text-decoration: none;
+    border: 1px solid var(--gold);
+    transition: background 0.2s, color 0.2s;
+  }
+  .cta:hover, .cta:focus-visible {
+    background: var(--gold);
+    color: var(--navy-deep);
+  }
+
+  /* ── Footer ── */
+  footer {
+    padding: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--navy-line);
+    border-top: 1px solid var(--navy-line);
+  }
+
+  @media (max-width: 600px) {
+    main { padding: 44px 16px 60px; }
+    .headline { margin-bottom: 36px; }
+    .tagline { margin-top: 32px; }
+    .cta { margin-top: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/" class="wordmark"><span>TRUST</span> VOICE</a>
+</header>
+
+<main>
+  <h1 class="headline">Your voice.<br><em>Preserved forever.</em></h1>
+
+  <div class="video-wrap">
+    <!--
+      Place the video file at: media/ttv-private-f8c2a17d.mp4
+      (or update src below to match whatever unpredictable filename you choose)
+    -->
+    <video
+      controls
+      preload="metadata"
+      poster=""
+      aria-label="The Trust Voice — private preview">
+      <source src="media/ttv-private-f8c2a17d.mp4" type="video/mp4">
+      Your browser does not support HTML5 video.
+    </video>
+  </div>
+
+  <p class="tagline">Preserving wisdom. Not just wealth.</p>
+
+  <a href="https://thetrustvoice.com/legacy#contact" class="cta">
+    Request a private conversation
+  </a>
+</main>
+
+<footer>
+  &copy; <script>document.write(new Date().getFullYear())</script> The Trust Voice LLC. Private &amp; confidential.
+</footer>
+
+</body>
+</html>
