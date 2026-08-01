@@ -91,17 +91,6 @@ export async function getIdToken(): Promise<string> {
   });
 }
 
-// Returns true if there is a locally stored valid session (no network call).
-export async function hasStoredSession(): Promise<boolean> {
-  const user = pool.getCurrentUser();
-  if (!user) return false;
-  return new Promise(resolve => {
-    user.getSession((err: Error | null, session: CognitoUserSession | null) => {
-      resolve(!err && session !== null && session.isValid());
-    });
-  });
-}
-
 // Step 1 of TOTP setup: get the base32 secret from Cognito.
 export async function associateSoftwareToken(user: CognitoUser): Promise<string> {
   return new Promise((resolve, reject) => {
