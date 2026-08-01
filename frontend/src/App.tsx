@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CognitoUser } from 'amazon-cognito-identity-js';
-import { signIn, confirmMfa, completeNewPassword, hasStoredSession, signOut as cognitoSignOut } from './auth/cognito';
+import { signIn, confirmMfa, completeNewPassword, signOut as cognitoSignOut } from './auth/cognito';
 import { getClients, type Client } from './api/client';
 import { LoginForm } from './components/LoginForm';
 import { MfaForm } from './components/MfaForm';
@@ -46,14 +46,11 @@ export default function App() {
     };
   }, [authenticated, forceSignOut]);
 
-  // On mount: check for a stored Cognito session so returning users skip login.
+  // On mount: always require fresh authentication — clear any stored session so
+  // tokens left in localStorage from a previous visit cannot bypass login + MFA.
   useEffect(() => {
-    hasStoredSession()
-      .then(valid => {
-        if (valid) return loadClients();
-        setScreen({ id: 'login' });
-      })
-      .catch(() => setScreen({ id: 'login' }));
+    cognitoSignOut();
+    setScreen({ id: 'login' });
   }, []);
 
   async function loadClients(): Promise<void> {
