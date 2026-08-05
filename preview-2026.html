@@ -77,6 +77,7 @@
     max-width: 860px;
     background: #000;
     border: 1px solid var(--navy-line);
+    position: relative;
   }
   .video-wrap video {
     display: block;
@@ -84,6 +85,37 @@
     height: auto;
     max-height: 540px;
     object-fit: contain;
+  }
+
+  /* ── Video loader overlay ── */
+  .video-loader {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    background: #000;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .video-loader.active { display: flex; }
+  .loader-ring {
+    width: 36px;
+    height: 36px;
+    border: 2px solid rgba(176, 141, 62, 0.18);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-text {
+    font-family: var(--sans);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(247, 244, 238, 0.4);
   }
 
   /* ── Tagline ── */
@@ -152,11 +184,12 @@
   <h1 class="headline">Your voice.<br><em>Preserved forever.</em></h1>
 
   <div class="video-wrap">
-    <!--
-      Place the video file at: media/ttv-private-f8c2a17d.mp4
-      (or update src below to match whatever unpredictable filename you choose)
-    -->
+    <div class="video-loader" id="videoLoader" aria-hidden="true">
+      <div class="loader-ring"></div>
+      <span class="loader-text">Loading&hellip;</span>
+    </div>
     <video
+      id="previewVideo"
       controls
       playsinline
       preload="metadata"
@@ -178,5 +211,19 @@
   &copy; <script>document.write(new Date().getFullYear())</script> The Trust Voice LLC. Private &amp; confidential.
 </footer>
 
+<script>
+(function () {
+  var v = document.getElementById('previewVideo');
+  var loader = document.getElementById('videoLoader');
+  if (!v || !loader) return;
+  function show() { loader.classList.add('active'); }
+  function hide() { loader.classList.remove('active'); }
+  v.addEventListener('waiting',    show);
+  v.addEventListener('playing',    hide);
+  v.addEventListener('canplay',    hide);
+  v.addEventListener('loadeddata', hide);
+  v.addEventListener('error',      hide);
+}());
+</script>
 </body>
 </html>
