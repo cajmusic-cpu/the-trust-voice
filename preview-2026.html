@@ -148,6 +148,74 @@
     color: var(--navy-deep);
   }
 
+  /* ── Email capture ── */
+  .email-capture {
+    margin-top: 48px;
+    width: 100%;
+    max-width: 480px;
+    text-align: center;
+  }
+  .email-divider {
+    width: 40px;
+    height: 1px;
+    background: var(--navy-line);
+    margin: 0 auto 28px;
+  }
+  .email-capture-label {
+    font-size: 13px;
+    color: var(--cream);
+    letter-spacing: 0.03em;
+    margin-bottom: 16px;
+  }
+  .email-row {
+    display: flex;
+    gap: 8px;
+  }
+  .email-input {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--navy-line);
+    color: var(--cream);
+    font-family: var(--sans);
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .email-input::placeholder { color: rgba(247,244,238,0.3); }
+  .email-input:focus { border-color: var(--gold); }
+  .email-btn {
+    background: transparent;
+    border: 1px solid var(--navy-line);
+    color: rgba(247,244,238,0.55);
+    font-family: var(--sans);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+    white-space: nowrap;
+  }
+  .email-btn:hover, .email-btn:focus-visible {
+    border-color: var(--gold);
+    color: var(--gold-soft);
+  }
+  .email-feedback {
+    margin-top: 10px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  .email-feedback.success { color: var(--gold-soft); }
+  .email-feedback.error   { color: rgba(247,244,238,0.45); }
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0);
+    white-space: nowrap; border: 0;
+  }
+
   /* ── Footer ── */
   footer {
     padding: 24px;
@@ -162,6 +230,9 @@
     .headline { margin-bottom: 36px; }
     .tagline { margin-top: 32px; }
     .cta { margin-top: 28px; }
+    .email-capture { margin-top: 36px; }
+    .email-row { flex-direction: column; }
+    .email-btn { width: 100%; }
   }
 </style>
 <!-- Microsoft Clarity -->
@@ -205,6 +276,40 @@
   <a href="https://thetrustvoice.com/legacy#contact" class="cta">
     Request a private conversation
   </a>
+
+  <div class="email-capture">
+    <div class="email-divider"></div>
+    <p class="email-capture-label">Not ready to talk yet? Get the full walkthrough by email.</p>
+    <form
+      id="previewEmailForm"
+      name="preview-email-signup"
+      method="POST"
+      data-netlify="true"
+      netlify-honeypot="bot-field"
+      novalidate>
+      <input type="hidden" name="form-name" value="preview-email-signup">
+      <p class="visually-hidden">
+        <label>Leave this blank: <input name="bot-field" tabindex="-1" autocomplete="off"></label>
+      </p>
+      <input type="hidden" name="utm_source"   id="pe_utm_source">
+      <input type="hidden" name="utm_medium"   id="pe_utm_medium">
+      <input type="hidden" name="utm_campaign" id="pe_utm_campaign">
+      <input type="hidden" name="utm_content"  id="pe_utm_content">
+      <input type="hidden" name="utm_term"     id="pe_utm_term">
+      <div class="email-row">
+        <input
+          type="email"
+          name="email"
+          id="peEmail"
+          class="email-input"
+          placeholder="Your email address"
+          required
+          autocomplete="email">
+        <button type="submit" class="email-btn">Send it</button>
+      </div>
+      <p class="email-feedback" id="peEmailFeedback" aria-live="polite"></p>
+    </form>
+  </div>
 </main>
 
 <footer>
@@ -223,6 +328,43 @@
   v.addEventListener('canplay',    hide);
   v.addEventListener('loadeddata', hide);
   v.addEventListener('error',      hide);
+}());
+
+// ── Preview email capture ──────────────────────────────────────────────────
+(function () {
+  var UTM_KEYS = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+  var utms = {};
+  try { var s = sessionStorage.getItem('ttv_preview_utms'); if (s) utms = JSON.parse(s); } catch(e) {}
+  var qs = new URLSearchParams(window.location.search);
+  UTM_KEYS.forEach(function(k) { if (qs.get(k)) utms[k] = qs.get(k); });
+  try { sessionStorage.setItem('ttv_preview_utms', JSON.stringify(utms)); } catch(e) {}
+  UTM_KEYS.forEach(function(k) {
+    var el = document.getElementById('pe_' + k);
+    if (el && utms[k]) el.value = utms[k];
+  });
+  var form = document.getElementById('previewEmailForm');
+  var feedback = document.getElementById('peEmailFeedback');
+  if (!form || !feedback) return;
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var email = document.getElementById('peEmail');
+    if (!email || !email.value.trim()) return;
+    feedback.textContent = '';
+    feedback.className = 'email-feedback';
+    fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(new FormData(form)).toString()
+    })
+    .then(function(res) {
+      if (!res.ok) throw new Error();
+      form.innerHTML = '<p class="email-feedback success">You\'re on the list. We\'ll be in touch.</p>';
+    })
+    .catch(function() {
+      feedback.textContent = 'Something went wrong — please try again or email info@thetrustvoice.com.';
+      feedback.className = 'email-feedback error';
+    });
+  });
 }());
 </script>
 </body>
