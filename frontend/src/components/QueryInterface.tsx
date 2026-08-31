@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 'react';
-import { queryClient, getVideoUrl, type Citation } from '../api/client';
+import { queryClient, getVideoUrl, ApiError, type Citation } from '../api/client';
+import { reportVideoEvent } from '../api/telemetry';
 import { signOut } from '../auth/cognito';
 
 const TOPICS = [
@@ -22,8 +23,34 @@ interface Turn {
 }
 
 // Cache presigned URLs for the session to avoid redundant fetches.
-// Key: "{clientId}/{videoId}", Value: url string
-const videoUrlCache = new Map<string, string>();
+// Key: "{clientId}/{videoId}". Presigned URLs expire after 1 hour (EXPIRES_IN in
+// the video-url Lambda); anything older than the TTL below is treated as a miss
+// so a long-lived tab never hands a <video> element a URL that 403s mid-stream.
+const VIDEO_URL_TTL_MS = 55 * 60 * 1000;
+const videoUrlCache = new Map<string, { url: string; fetchedAt: number }>();
+
+function getCachedVideoUrl(key: string): string | null {
+  const hit = videoUrlCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.fetchedAt > VIDEO_URL_TTL_MS) {
+    videoUrlCache.delete(key);
+    return null;
+  }
+  return hit.url;
+}
+
+// How long to wait for the presigned-URL request, and then for the <video>
+// element to reach a playable frame, before showing a Retry affordance.
+const URL_FETCH_TIMEOUT_MS = 10_000;
+const MEDIA_LOAD_TIMEOUT_MS = 10_000;
+
+type VideoStatus =
+  | 'fetching_url'   // waiting on GET /videos/{id}/url
+  | 'loading_media'  // have a URL, waiting for the <video> to seek/buffer
+  | 'ready'          // playable frame reached
+  | 'stalled'        // a timeout elapsed — recoverable, offer Retry
+  | 'error'          // the <video> element raised an error — offer Retry
+  | 'unavailable';   // permanent (400/403/404) — no Retry
 
 interface Props {
   clientId: string;
@@ -283,34 +310,118 @@ function formatDuration(seconds: number): string {
 function CitationVideo({ clientId, videoId, startTime, endTime }: {
   clientId: string; videoId: string; startTime: number; endTime: number;
 }) {
+  const [status, setStatus] = useState<VideoStatus>('fetching_url');
   const [url, setUrl] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [playing, setPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
   // Stable ref so the timeupdate closure always reads the current endTime
   // without needing to re-register the listener on every render.
   const endTimeRef = useRef(endTime);
   useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
 
+  // Mirror of `status` readable from timers / native event listeners.
+  const statusRef = useRef(status);
+  useEffect(() => { statusRef.current = status; }, [status]);
+
+  // Timing anchors for instrumentation.
+  const attemptStartRef = useRef(0);
+  const urlReceivedRef = useRef(0);
+
+  const ready = status === 'ready';
+  const cacheKey = `${clientId}/${videoId}`;
+
+  // ── Fetch the presigned URL, with a hard timeout, once per attempt ─────────
   useEffect(() => {
-    const cacheKey = `${clientId}/${videoId}`;
-    const cached = videoUrlCache.get(cacheKey);
+    const startedAt = performance.now();
+    attemptStartRef.current = startedAt;
+    let cancelled = false;
+
+    reportVideoEvent({ event: 'url_requested', clientId, videoId, attempt });
+
+    const cached = getCachedVideoUrl(cacheKey);
     if (cached) {
+      urlReceivedRef.current = performance.now();
       setUrl(cached);
-    } else {
-      getVideoUrl(clientId, videoId)
-        .then(u => { videoUrlCache.set(cacheKey, u); setUrl(u); })
-        .catch(() => setLoadError(true));
+      setStatus('loading_media');
+      return;
     }
-  }, [clientId, videoId]);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(new DOMException('timeout', 'AbortError')),
+      URL_FETCH_TIMEOUT_MS,
+    );
+
+    setStatus('fetching_url');
+    getVideoUrl(clientId, videoId, controller.signal)
+      .then(u => {
+        if (cancelled) return;
+        clearTimeout(timeout);
+        videoUrlCache.set(cacheKey, { url: u, fetchedAt: Date.now() });
+        urlReceivedRef.current = performance.now();
+        reportVideoEvent({
+          event: 'url_received', clientId, videoId, attempt,
+          ms: Math.round(performance.now() - startedAt),
+        });
+        setUrl(u);
+        setStatus('loading_media');
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        clearTimeout(timeout);
+        const ms = Math.round(performance.now() - startedAt);
+        const aborted = err instanceof DOMException && err.name === 'AbortError';
+        const httpStatus = err instanceof ApiError ? err.status : 0;
+        if (aborted) {
+          reportVideoEvent({ event: 'stalled', clientId, videoId, attempt, stage: 'url', msTotal: ms });
+          setStatus('stalled');
+        } else {
+          reportVideoEvent({ event: 'url_failed', clientId, videoId, attempt, ms, status: httpStatus });
+          const permanent = httpStatus === 400 || httpStatus === 403 || httpStatus === 404;
+          setStatus(permanent ? 'unavailable' : 'stalled');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [clientId, videoId, cacheKey, attempt]);
+
+  // ── Media-load watchdog: URL in hand but no playable frame in time ─────────
+  useEffect(() => {
+    if (status !== 'loading_media') return;
+    const timer = setTimeout(() => {
+      if (statusRef.current !== 'loading_media') return;
+      reportVideoEvent({
+        event: 'stalled', clientId, videoId, attempt, stage: 'media',
+        msTotal: Math.round(performance.now() - attemptStartRef.current),
+      });
+      setStatus('stalled');
+    }, MEDIA_LOAD_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [status, attempt, clientId, videoId]);
+
+  function markReady() {
+    if (statusRef.current === 'ready') return;
+    const now = performance.now();
+    reportVideoEvent({
+      event: 'media_ready', clientId, videoId, attempt,
+      msSinceUrl: Math.round(now - urlReceivedRef.current),
+      msTotal: Math.round(now - attemptStartRef.current),
+    });
+    setStatus('ready');
+  }
 
   function handleLoadedMetadata() {
     if (videoRef.current) videoRef.current.currentTime = startTime;
   }
 
   function handleSeeked() {
-    if (!ready) setReady(true);
+    markReady();
   }
 
   function handleCanPlay() {
@@ -318,9 +429,18 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
     // Only accept canplay as a readiness signal when the browser is at startTime.
     // With preload="metadata", canplay can fire at position 0 before the seek to
     // startTime completes — accepting it there would expose the wrong frame.
-    if (!ready && video && Math.abs(video.currentTime - startTime) < 1) {
-      setReady(true);
-    }
+    if (video && Math.abs(video.currentTime - startTime) < 1) markReady();
+  }
+
+  function handleMediaError() {
+    // A late error after playback has started is not worth interrupting for.
+    if (statusRef.current === 'ready') return;
+    const code = videoRef.current?.error?.code ?? 0;
+    reportVideoEvent({
+      event: 'media_error', clientId, videoId, attempt, code,
+      msTotal: Math.round(performance.now() - attemptStartRef.current),
+    });
+    setStatus('error');
   }
 
   function handleTimeUpdate() {
@@ -356,18 +476,42 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
     void video.play().catch(() => {});
   }
 
-  if (loadError) return null;
+  // Retry re-issues the video request in place — no page reload, no re-auth.
+  // getIdToken() refreshes the Cognito session silently if it needs to.
+  function retry() {
+    videoUrlCache.delete(cacheKey);
+    reportVideoEvent({ event: 'retry', clientId, videoId, attempt: attempt + 1 });
+    setPlaying(false);
+    setUrl(null);
+    setStatus('fetching_url');
+    setAttempt(a => a + 1);
+  }
 
   return (
     <div className="citation-video-wrap">
-      {(!url || !ready) && (
+      {(status === 'fetching_url' || status === 'loading_media') && (
         <div className="citation-video-loading">
           <span className="citation-video-spinner" />
         </div>
       )}
-      {url && (
+
+      {(status === 'stalled' || status === 'error') && (
+        <div className="citation-video-loading citation-video-retry">
+          <p>{status === 'error' ? "This clip didn't load." : 'Still loading…'}</p>
+          <button type="button" onClick={retry}>Retry</button>
+        </div>
+      )}
+
+      {status === 'unavailable' && (
+        <div className="citation-video-loading citation-video-retry">
+          <p>This clip isn't available.</p>
+        </div>
+      )}
+
+      {url && status !== 'unavailable' && (
         <>
           <video
+            key={attempt}
             ref={videoRef}
             className={`citation-video${ready ? ' citation-video--ready' : ''}`}
             src={`${url}#t=${Math.floor(startTime)}`}
@@ -376,6 +520,7 @@ function CitationVideo({ clientId, videoId, startTime, endTime }: {
             onLoadedMetadata={handleLoadedMetadata}
             onSeeked={handleSeeked}
             onCanPlay={handleCanPlay}
+            onError={handleMediaError}
             onPlay={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             onTimeUpdate={handleTimeUpdate}

@@ -15,6 +15,8 @@ import * as config from 'aws-cdk-lib/aws-config';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as cloudfront_origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as events_targets from 'aws-cdk-lib/aws-events-targets';
 import { Construct } from 'constructs';
 import { CLIENTS } from './config/clients';
 
@@ -313,10 +315,66 @@ export class TrustVoiceStack extends cdk.Stack {
       role: videoUrlLambdaRole,
       logGroup: videoUrlLogs,
       timeout: cdk.Duration.seconds(10),
-      memorySize: 128,
+      // 512 MB (up from 128): at 128 MB the function got ~1/12 vCPU and cold
+      // starts ran ~1.3 s with Max Memory Used at 101/128 MB — no headroom.
+      // More memory buys proportional CPU, roughly halving the cold start.
+      memorySize: 512,
       environment: {
         VIDEOS_TABLE: this.videosTable.tableName,
       },
+      bundling: { minify: true, sourceMap: true, target: 'node22' },
+    });
+
+    // Keep-warm: EventBridge pings the presigned-URL function every 5 minutes so
+    // the first real request during a demo lands on a warm container. The ping
+    // carries { warmup: true }; withClientIsolation() short-circuits it before any
+    // auth or data access. Provisioned concurrency was considered and rejected —
+    // the measured cold start is ~1.3 s and has never failed, so a scheduled ping
+    // is the proportionate fix at a fraction of the cost.
+    new events.Rule(this, 'VideoUrlWarmer', {
+      ruleName: 'ttv-video-url-warmer',
+      description: 'Pings ttv-video-url every 5 minutes to prevent cold starts',
+      schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
+      targets: [
+        new events_targets.LambdaFunction(videoUrlFunction, {
+          event: events.RuleTargetInput.fromObject({ warmup: true }),
+        }),
+      ],
+    });
+
+    // ── VIDEO TELEMETRY LAMBDA ────────────────────────────────────────────────
+    //
+    // Receives client-side video playback lifecycle timings (request start →
+    // first byte → ready-to-play) via navigator.sendBeacon so a recurrence of the
+    // "video spins forever" bug is visible in CloudWatch instead of anecdote.
+    // Unauthenticated by necessity — sendBeacon cannot set an Authorization
+    // header. It does no data access and only emits EMF metrics; abuse surface is
+    // bounded by the Lambda's 2 KB body cap / event allow-list and the per-method
+    // throttle configured on the /telemetry/video route below.
+
+    const videoTelemetryLogs = new logs.LogGroup(this, 'VideoTelemetryLambdaLogs', {
+      logGroupName: '/aws/lambda/ttv-video-telemetry',
+      retention: logs.RetentionDays.ONE_YEAR,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const videoTelemetryRole = new iam.Role(this, 'VideoTelemetryLambdaRole', {
+      roleName: 'ttv-video-telemetry-lambda-role',
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
+    const videoTelemetryFunction = new lambda_nodejs.NodejsFunction(this, 'VideoTelemetryFunction', {
+      functionName: 'ttv-video-telemetry',
+      entry: path.join(__dirname, '..', 'lambdas', 'video-telemetry', 'index.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      role: videoTelemetryRole,
+      logGroup: videoTelemetryLogs,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
       bundling: { minify: true, sourceMap: true, target: 'node22' },
     });
 
@@ -510,6 +568,14 @@ export class TrustVoiceStack extends cdk.Stack {
         }),
         loggingLevel: apigateway.MethodLoggingLevel.ERROR,
         metricsEnabled: true,
+        // The telemetry route is unauthenticated; cap it so an open beacon
+        // endpoint can't be used to flood CloudWatch or run up cost.
+        methodOptions: {
+          '/telemetry/video/POST': {
+            throttlingRateLimit: 20,
+            throttlingBurstLimit: 40,
+          },
+        },
       },
       defaultCorsPreflightOptions: {
         allowOrigins: ['https://portal.thetrustvoice.com'],
@@ -565,6 +631,25 @@ export class TrustVoiceStack extends cdk.Stack {
       'GET',
       new apigateway.LambdaIntegration(videoUrlFunction),
       authOptions,
+    );
+
+    // ── TELEMETRY (unauthenticated beacon) ───────────────────────────────────
+    // POST /telemetry/video — client video-playback lifecycle timings.
+    // text/plain sendBeacon() payloads are a CORS "simple request" (no preflight);
+    // the explicit OPTIONS here covers the fetch(keepalive) fallback path.
+    const telemetryResource = this.api.root.addResource('telemetry', {
+      defaultCorsPreflightOptions: {
+        allowOrigins: ['https://portal.thetrustvoice.com'],
+        allowMethods: ['POST', 'OPTIONS'],
+        allowHeaders: ['Content-Type'],
+        maxAge: cdk.Duration.hours(1),
+      },
+    });
+    const videoTelemetryResource = telemetryResource.addResource('video');
+    videoTelemetryResource.addMethod(
+      'POST',
+      new apigateway.LambdaIntegration(videoTelemetryFunction),
+      { authorizationType: apigateway.AuthorizationType.NONE },
     );
 
     new cdk.CfnOutput(this, 'ApiUrl', {

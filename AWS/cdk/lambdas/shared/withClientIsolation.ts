@@ -37,6 +37,13 @@ function parseGroups(raw: string | undefined): string[] {
 
 export function withClientIsolation(fn: IsolatedHandler): Handler {
   return async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    // EventBridge "keep-warm" pings carry { warmup: true } and no HTTP/auth context.
+    // Short-circuit here so they hold a container warm without registering as 401s
+    // in logs or metrics. No handler code and no data access runs for a ping.
+    if ((event as unknown as { warmup?: boolean }).warmup === true) {
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: '{"warm":true}' };
+    }
+
     // Claims are injected by API Gateway after it validates the Cognito JWT signature.
     // We never read authorization data from the request body or query parameters.
     const authorizer = event.requestContext.authorizer as
