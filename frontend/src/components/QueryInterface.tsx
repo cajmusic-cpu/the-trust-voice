@@ -307,7 +307,7 @@ function formatDuration(seconds: number): string {
   return rem === 0 ? `${m}m` : `${m}m ${rem}s`;
 }
 
-function CitationVideo({ clientId, videoId, startTime, endTime }: {
+export function CitationVideo({ clientId, videoId, startTime, endTime }: {
   clientId: string; videoId: string; startTime: number; endTime: number;
 }) {
   const [status, setStatus] = useState<VideoStatus>('fetching_url');
