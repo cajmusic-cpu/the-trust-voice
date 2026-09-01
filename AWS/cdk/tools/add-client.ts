@@ -12,7 +12,8 @@
 // Creates (idempotent — safe to re-run if something failed partway through):
 //   - ttv-{clientId}-videos S3 bucket
 //       versioned, SSE-S3 encrypted, all public access blocked, SSL-only bucket policy
-//       CORS: PUT from https://upload.thetrustvoice.com
+//       CORS: PUT from https://upload.thetrustvoice.com (videographer uploads),
+//             GET/HEAD from the portal origin (trustee playback of presigned URLs)
 //       S3 ObjectCreated notification → ttv-ingest Lambda
 //   - ttv-{clientId}-transcripts S3 bucket
 //       versioned, SSE-S3 encrypted, all public access blocked, SSL-only bucket policy
@@ -44,6 +45,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import { CloudFormationClient, DescribeStacksCommand } from '@aws-sdk/client-cloudformation';
+import { VIDEO_BUCKET_CORS_RULES } from './video-bucket-cors';
 
 const REGION = 'us-east-1';
 const STACK_NAME = 'TrustVoiceStack';
@@ -189,19 +191,13 @@ async function main(): Promise<void> {
   await createBucket(videoBucket);
   await configureBucket(videoBucket);
 
-  // CORS: allow PUT from the upload portal (videographers upload directly to S3)
+  // CORS: PUT from the upload portal (videographer uploads) + GET/HEAD from the
+  // web portal (trustee playback of presigned URLs). See tools/video-bucket-cors.ts.
   await s3.send(new PutBucketCorsCommand({
     Bucket: videoBucket,
-    CORSConfiguration: {
-      CORSRules: [{
-        AllowedMethods: ['PUT'],
-        AllowedOrigins: ['https://upload.thetrustvoice.com'],
-        AllowedHeaders: ['*'],
-        MaxAgeSeconds: 3000,
-      }],
-    },
+    CORSConfiguration: { CORSRules: VIDEO_BUCKET_CORS_RULES },
   }));
-  console.log(`  ✓ CORS configured for upload.thetrustvoice.com`);
+  console.log(`  ✓ CORS configured (PUT from upload portal, GET/HEAD from web portal)`);
 
   // S3 notification → ttv-ingest Lambda on every new object
   await s3.send(new PutBucketNotificationConfigurationCommand({

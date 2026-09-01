@@ -2,6 +2,18 @@ import { getIdToken } from '../auth/cognito';
 
 const API_BASE = (import.meta.env['VITE_API_BASE_URL'] as string).replace(/\/$/, '');
 
+// Carries the HTTP status so callers can distinguish a permanent failure
+// (400/403/404 — bad request, not authorized, gone) from a transient one
+// (5xx, network, timeout) that is worth retrying.
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function authFetch(path: string, options?: RequestInit): Promise<Response> {
   const token = await getIdToken();
   return fetch(`${API_BASE}${path}`, {
@@ -50,9 +62,15 @@ export async function queryClient(clientId: string, question: string): Promise<Q
 }
 
 // Returns a presigned S3 URL valid for 1 hour. Append #t={seconds} to seek.
-export async function getVideoUrl(clientId: string, videoId: string): Promise<string> {
-  const res = await authFetch(`/clients/${clientId}/videos/${videoId}/url`);
-  if (!res.ok) throw new Error(`Failed to get video URL (${res.status})`);
+// Pass an AbortSignal to enforce a client-side timeout. Throws ApiError with the
+// HTTP status on a non-2xx response.
+export async function getVideoUrl(
+  clientId: string,
+  videoId: string,
+  signal?: AbortSignal,
+): Promise<string> {
+  const res = await authFetch(`/clients/${clientId}/videos/${videoId}/url`, { signal });
+  if (!res.ok) throw new ApiError(`Failed to get video URL (${res.status})`, res.status);
   const data = (await res.json()) as { url: string };
   return data.url;
 }
