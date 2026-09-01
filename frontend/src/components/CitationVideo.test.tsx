@@ -6,6 +6,10 @@ import { CitationVideo } from './QueryInterface';
 // Telemetry is fire-and-forget; stub it so tests don't hit the network.
 vi.mock('../api/telemetry', () => ({ reportVideoEvent: vi.fn() }));
 
+// CitationVideo needs no auth — stub the module so importing api/client does not
+// construct a real Cognito user pool at load time.
+vi.mock('../auth/cognito', () => ({ getIdToken: vi.fn().mockResolvedValue('test-token') }));
+
 const GOOD_URL = 'https://videos.example.test/optimized.mp4?X-Amz-Signature=ok';
 
 function abortableNever(signal?: AbortSignal): Promise<string> {
