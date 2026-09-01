@@ -484,6 +484,12 @@ body { min-height: 100vh; background: var(--cream); }
   align-items: center;
   justify-content: center;
   background: var(--stone);
+  /* Sit above the <video> for both paint and hit-testing. A not-ready
+     <video> has opacity:0, which makes it a stacking context painted at the
+     z-index:0 level in tree order — and it comes AFTER this overlay in the
+     DOM, so without an explicit z-index the invisible video would paint on
+     top and swallow clicks on the Retry button. */
+  z-index: 3;
 }
 
 .citation-video-spinner {
@@ -536,9 +542,14 @@ body { min-height: 100vh; background: var(--cream); }
   display: block;
   opacity: 0;
   transition: opacity 0.3s;
+  /* While hidden/not-ready the video is decorative only — never let it
+     intercept pointer input (it would otherwise block the Retry overlay
+     and the play button). Pointer events return when it is ready, so the
+     native controls work during playback. */
+  pointer-events: none;
 }
 
-.citation-video--ready { opacity: 1; }
+.citation-video--ready { opacity: 1; pointer-events: auto; }
 
 .citation-play-overlay {
   position: absolute;

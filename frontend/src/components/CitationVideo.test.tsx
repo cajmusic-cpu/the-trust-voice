@@ -134,4 +134,27 @@ describe('CitationVideo — failure surfaces a retry affordance and recovers in 
     expect(videoEl()).not.toBeNull();
     expect(calls).toBe(2);
   });
+
+  // Regression: an opacity:0 <video> is a stacking context painted in tree
+  // order at the z-index:0 level. It renders AFTER the retry overlay in the
+  // DOM, so without the CSS guards below it painted on top and swallowed
+  // clicks on the Retry button (invisible, but pointer-events still active).
+  // jsdom has no hit-testing, so the behavioural tests above cannot catch it —
+  // assert the computed styles that keep the overlay reachable instead.
+  it('retry overlay stays above and the not-ready <video> ignores pointer input', async () => {
+    vi.spyOn(client, 'getVideoUrl').mockResolvedValue(GOOD_URL);
+
+    render(<CitationVideo clientId="c-stack" videoId="v-stack" startTime={2} endTime={6} />);
+    await flush();
+
+    const video = videoEl();
+    expect(video).not.toBeNull();
+    fireEvent.error(video as HTMLVideoElement); // -> status 'error', overlay + <video> both mounted
+
+    const overlay = document.querySelector('.citation-video-loading.citation-video-retry');
+    expect(overlay).not.toBeNull();
+
+    expect(getComputedStyle(overlay as Element).zIndex).toBe('3');
+    expect(getComputedStyle(video as Element).pointerEvents).toBe('none');
+  });
 });
