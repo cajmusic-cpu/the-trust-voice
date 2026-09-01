@@ -53,6 +53,29 @@ jobs:
       - name: Test
         run: npm test
 
+  # ── Test Frontend ────────────────────────────────────────────────────────
+  TestFrontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Test
+        run: npm test
+
   # ── Build ─────────────────────────────────────────────────────────────────
   Build:
     name: Build
@@ -117,7 +140,7 @@ jobs:
   # when changes are pushed to main — no action needed here for it.
   deploy-portal:
     name: Deploy Portal Frontend
-    needs: [Lint, Test, Build]
+    needs: [Lint, Test, Build, TestFrontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
