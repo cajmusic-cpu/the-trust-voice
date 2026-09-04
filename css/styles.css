@@ -187,6 +187,18 @@ nav {
 
 .citation-play { font-size: 0.55rem; }
 
+/* Descriptive caption, not a control — no border/hover/pointer, unlike
+   .panel-citation above. It only states that a video would appear here in
+   the live product; it must not look or behave like a clickable element. */
+.panel-caption {
+  display: inline-flex; align-items: center; gap: 0.65rem;
+  font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  cursor: default;
+}
+
+.caption-icon { font-size: 0.55rem; color: rgba(255,255,255,0.35); }
+
 .panel-footer {
   padding: 0.9rem 2rem;
   border-top: 1px solid rgba(255,255,255,0.06);
