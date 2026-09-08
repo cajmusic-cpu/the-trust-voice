@@ -1,6 +1,17 @@
 [build]
   publish = "."
 
+# Canonical host: permanently redirect the auto-generated Netlify subdomain
+# to the custom domain, preserving the path (and query string). Keeps
+# thetrustvoice.com the single origin visitors and search engines see.
+# Matches only the exact production host — deploy-preview-*/branch-- URLs
+# (different hostnames) are unaffected, so PR previews still work.
+[[redirects]]
+  from = "https://the-trust-voice.netlify.app/*"
+  to = "https://thetrustvoice.com/:splat"
+  status = 301
+  force = true
+
 # Serve the upload page for any request on the upload subdomain
 [[redirects]]
   from = "https://upload.thetrustvoice.com/"
