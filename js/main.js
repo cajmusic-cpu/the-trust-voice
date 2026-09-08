@@ -44,59 +44,65 @@ hamburger.addEventListener('click', () => {
 });
 
 /* === INQUIRY MODAL === */
+// The modal markup only exists on the home page, but this script is loaded
+// on other pages too (e.g. faq.html). Guard everything that touches it.
 const inquiryModal = document.getElementById('inquiryModal');
 const inquiryForm  = document.getElementById('inquiryForm');
-const formError    = inquiryModal.querySelector('.form-error');
-const formSuccess  = inquiryModal.querySelector('.form-success');
-
-function openInquiry() {
-  inquiryModal.classList.add('open');
-  document.body.style.overflow = 'hidden';
-  const first = inquiryModal.querySelector('input:not([tabindex="-1"])');
-  if (first) first.focus();
-}
 
 function closeInquiry() {
+  if (!inquiryModal) return;
   inquiryModal.classList.remove('open');
   document.body.style.overflow = '';
 }
 
-document.querySelectorAll('[data-inquiry]').forEach(el => {
-  el.addEventListener('click', e => {
-    e.preventDefault();
-    closeMobileMenu();
-    openInquiry();
-  });
-});
+if (inquiryModal && inquiryForm) {
+  const formError   = inquiryModal.querySelector('.form-error');
+  const formSuccess = inquiryModal.querySelector('.form-success');
 
-inquiryModal.querySelector('.modal-close').addEventListener('click', closeInquiry);
-inquiryModal.addEventListener('click', e => { if (e.target === inquiryModal) closeInquiry(); });
+  const openInquiry = () => {
+    inquiryModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    const first = inquiryModal.querySelector('input:not([tabindex="-1"])');
+    if (first) first.focus();
+  };
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeMobileMenu();
-    closeInquiry();
-  }
-});
-
-inquiryForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  formError.classList.remove('visible');
-  const btn = inquiryForm.querySelector('[type="submit"]');
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
-  try {
-    const res = await fetch('/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(new FormData(inquiryForm)).toString(),
+  document.querySelectorAll('[data-inquiry]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      closeMobileMenu();
+      openInquiry();
     });
-    if (!res.ok) throw new Error();
-    inquiryForm.hidden = true;
-    formSuccess.classList.add('visible');
-  } catch {
-    formError.classList.add('visible');
-    btn.disabled = false;
-    btn.textContent = 'Send Message';
-  }
+  });
+
+  inquiryModal.querySelector('.modal-close').addEventListener('click', closeInquiry);
+  inquiryModal.addEventListener('click', e => { if (e.target === inquiryModal) closeInquiry(); });
+
+  inquiryForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    formError.classList.remove('visible');
+    const btn = inquiryForm.querySelector('[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    try {
+      const res = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(new FormData(inquiryForm)).toString(),
+      });
+      if (!res.ok) throw new Error();
+      inquiryForm.hidden = true;
+      formSuccess.classList.add('visible');
+    } catch {
+      formError.classList.add('visible');
+      btn.disabled = false;
+      btn.textContent = 'Send Message';
+    }
+  });
+}
+
+// Escape closes the mobile menu everywhere, and the modal where it exists.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  closeMobileMenu();
+  closeInquiry();
 });
