@@ -397,7 +397,7 @@
     <button class="modal-close" aria-label="Close dialog">&times;</button>
     <div class="modal-eyebrow">Get in Touch</div>
     <h2 id="inquiryModalTitle" class="modal-title">We&rsquo;d love to hear from you</h2>
-    <p class="modal-sub">Tell us a bit about yourself and we&rsquo;ll be in touch within one business day.</p>
+    <p class="modal-sub">There is no obligation and nothing to prepare. We&rsquo;ll answer your questions and help you decide whether it&rsquo;s a fit &mdash; for your own family&rsquo;s planning or your clients&rsquo;. We typically reply within one business day.</p>
 
     <form
       name="inquiry"
@@ -420,6 +420,10 @@
         <input type="email" id="inq-email" name="email" required placeholder="your@email.com">
       </div>
       <div class="form-group">
+        <label for="inq-phone">Phone (optional)</label>
+        <input type="tel" id="inq-phone" name="phone" autocomplete="tel" placeholder="(555) 555-5555">
+      </div>
+      <div class="form-group">
         <label for="inq-type">I am a&hellip;</label>
         <select id="inq-type" name="inquiry-type" required>
           <option value="">Select one</option>
@@ -427,6 +431,21 @@
           <option value="Wealth Advisor">Wealth Advisor</option>
           <option value="Individual / Family">Individual / Family</option>
         </select>
+      </div>
+      <div class="form-group">
+        <label for="inq-planning">Where are you in your planning?</label>
+        <select id="inq-planning" name="planning" required>
+          <option value="">Select one</option>
+          <option value="A trust is already in place">A trust is already in place</option>
+          <option value="A trust is currently being planned">A trust is currently being planned</option>
+          <option value="Inquiring on behalf of a parent or family member">Inquiring on behalf of a parent or family member</option>
+          <option value="I'm an attorney or advisor inquiring for clients">I&rsquo;m an attorney or advisor inquiring for clients</option>
+          <option value="Exploring for the future">Exploring for the future</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="inq-area">Your area</label>
+        <input type="text" id="inq-area" name="area" autocomplete="address-level2" placeholder="City, State">
       </div>
       <div class="form-group">
         <label for="inq-message">How can we help?</label>
