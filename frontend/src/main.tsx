@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-// amazon-cognito-identity-js uses Buffer — polyfill it for the browser
+// The `qrcode` package touches Buffer when producing a data URL — polyfill it.
 (window as unknown as Record<string, unknown>)['Buffer'] = Buffer;
 
 import { StrictMode } from 'react';

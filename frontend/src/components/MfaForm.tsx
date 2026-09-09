@@ -17,8 +17,7 @@ export function MfaForm({ onSuccess, onBack }: Props) {
     try {
       await onSuccess(code);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Verification failed';
-      setError(msg.includes('Code mismatch') ? 'Incorrect code. Please try again.' : msg);
+      setError(friendlyMfaError(err));
       setCode('');
     } finally {
       setLoading(false);
@@ -65,4 +64,12 @@ export function MfaForm({ onSuccess, onBack }: Props) {
       </form>
     </div>
   );
+}
+
+function friendlyMfaError(err: unknown): string {
+  const name = err instanceof Error ? err.name : '';
+  if (name === 'CodeMismatchException') return 'Incorrect code. Please try again.';
+  if (name === 'ExpiredCodeException') return 'That code has expired. Enter the current one from your app.';
+  if (name === 'NotAuthorizedException') return 'Your session timed out. Go back and sign in again.';
+  return err instanceof Error ? err.message : 'Verification failed';
 }

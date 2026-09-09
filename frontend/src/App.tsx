@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { CognitoUser } from 'amazon-cognito-identity-js';
-import { signIn, confirmMfa, completeNewPassword, signOut as cognitoSignOut } from './auth/cognito';
+import {
+  signIn,
+  confirmSignIn,
+  signOut as cognitoSignOut,
+  type SignInResult,
+} from './auth/cognito';
 import { getClients, type Client } from './api/client';
 import { LoginForm } from './components/LoginForm';
 import { MfaForm } from './components/MfaForm';
@@ -12,9 +16,9 @@ import { QueryInterface } from './components/QueryInterface';
 type Screen =
   | { id: 'loading' }
   | { id: 'login' }
-  | { id: 'mfa'; user: CognitoUser }
-  | { id: 'totp_setup'; user: CognitoUser; email: string }
-  | { id: 'new_password'; user: CognitoUser }
+  | { id: 'mfa' }
+  | { id: 'totp_setup'; secret: string; email: string }
+  | { id: 'new_password' }
   | { id: 'client_select'; clients: Client[] }
   | { id: 'query'; client: Client; clients: Client[] };
 
@@ -26,7 +30,7 @@ export default function App() {
   const authenticated = screen.id === 'client_select' || screen.id === 'query';
 
   const forceSignOut = useCallback(() => {
-    cognitoSignOut();
+    void cognitoSignOut();
     setScreen({ id: 'login' });
   }, []);
 
@@ -47,9 +51,9 @@ export default function App() {
   }, [authenticated, forceSignOut]);
 
   // On mount: always require fresh authentication — clear any stored session so
-  // tokens left in localStorage from a previous visit cannot bypass login + MFA.
+  // tokens left from a previous visit cannot bypass login + MFA.
   useEffect(() => {
-    cognitoSignOut();
+    void cognitoSignOut();
     setScreen({ id: 'login' });
   }, []);
 
@@ -62,45 +66,42 @@ export default function App() {
     }
   }
 
+  // Routes an Amplify sign-in / confirm-sign-in outcome to the next screen.
+  async function applySignInResult(result: SignInResult): Promise<void> {
+    switch (result.status) {
+      case 'authenticated':
+        return loadClients();
+      case 'mfa_required':
+        setScreen({ id: 'mfa' });
+        return;
+      case 'totp_setup':
+        setScreen({ id: 'totp_setup', secret: result.secret, email: pendingEmail });
+        return;
+      case 'new_password_required':
+        setScreen({ id: 'new_password' });
+        return;
+    }
+  }
+
   async function handleLogin(email: string, password: string): Promise<void> {
     setPendingEmail(email);
-    const result = await signIn(email, password);
-    if (result.status === 'authenticated') {
-      await loadClients();
-    } else if (result.status === 'mfa_required') {
-      setScreen({ id: 'mfa', user: result.user });
-    } else if (result.status === 'totp_setup') {
-      setScreen({ id: 'totp_setup', user: result.user, email });
-    } else {
-      setScreen({ id: 'new_password', user: result.user });
-    }
+    await applySignInResult(await signIn(email, password));
   }
 
   async function handleMfa(code: string): Promise<void> {
-    if (screen.id !== 'mfa') return;
-    await confirmMfa(screen.user, code);
-    await loadClients();
+    await applySignInResult(await confirmSignIn(code));
   }
 
-  async function handleTotpSetupDone(): Promise<void> {
-    // After TOTP verification, Cognito completes the session — load clients.
-    await loadClients();
+  async function handleTotpSetup(code: string): Promise<void> {
+    await applySignInResult(await confirmSignIn(code));
   }
 
   async function handleNewPassword(newPassword: string): Promise<void> {
-    if (screen.id !== 'new_password') return;
-    const result = await completeNewPassword(screen.user, newPassword);
-    if (result.status === 'mfa_required') {
-      setScreen({ id: 'mfa', user: result.user });
-    } else if (result.status === 'totp_setup') {
-      setScreen({ id: 'totp_setup', user: result.user, email: pendingEmail });
-    } else {
-      await loadClients();
-    }
+    await applySignInResult(await confirmSignIn(newPassword));
   }
 
   function handleSignOut(): void {
-    cognitoSignOut();
+    void cognitoSignOut();
     setScreen({ id: 'login' });
   }
 
@@ -145,9 +146,9 @@ export default function App() {
     return (
       <div className="auth-screen">
         <TotpSetupForm
-          user={screen.user}
+          secret={screen.secret}
           email={screen.email || pendingEmail}
-          onSuccess={handleTotpSetupDone}
+          onSuccess={handleTotpSetup}
           onBack={() => setScreen({ id: 'login' })}
         />
       </div>

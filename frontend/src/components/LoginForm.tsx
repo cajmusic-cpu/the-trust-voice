@@ -17,8 +17,7 @@ export function LoginForm({ onSuccess }: Props) {
     try {
       await onSuccess(email, password);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Sign in failed';
-      setError(friendlyError(msg));
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -69,10 +68,27 @@ export function LoginForm({ onSuccess }: Props) {
   );
 }
 
-function friendlyError(msg: string): string {
-  if (msg.includes('Incorrect username or password')) return 'Incorrect email or password.';
-  if (msg.includes('User is disabled')) return 'This account has been disabled. Contact your administrator.';
-  if (msg.includes('User does not exist')) return 'Incorrect email or password.';
-  if (msg.includes('Password attempts exceeded')) return 'Too many failed attempts. Please wait a few minutes and try again.';
+function friendlyError(err: unknown): string {
+  const name = err instanceof Error ? err.name : '';
+  const msg = err instanceof Error ? err.message : 'Sign in failed';
+  if (name === 'UserNotFoundException') return 'Incorrect email or password.';
+  if (name === 'NotAuthorizedException') {
+    if (msg.includes('disabled')) return 'This account has been disabled. Contact your administrator.';
+    if (msg.toLowerCase().includes('attempts')) {
+      return 'Too many failed attempts. Please wait a few minutes and try again.';
+    }
+    return 'Incorrect email or password.';
+  }
+  if (
+    name === 'LimitExceededException' ||
+    name === 'TooManyRequestsException' ||
+    name === 'TooManyFailedAttemptsException'
+  ) {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  // Message-only fallbacks
+  if (msg.includes('Incorrect username or password') || msg.includes('User does not exist')) {
+    return 'Incorrect email or password.';
+  }
   return msg;
 }

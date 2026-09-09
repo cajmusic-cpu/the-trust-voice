@@ -107,7 +107,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
   }
 
   function handleSignOut() {
-    signOut();
+    void signOut();
     onSignOut();
   }
 
