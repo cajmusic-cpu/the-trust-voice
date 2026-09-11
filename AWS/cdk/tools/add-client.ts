@@ -18,6 +18,14 @@
 //   - ttv-{clientId}-transcripts S3 bucket
 //       versioned, SSE-S3 encrypted, all public access blocked, SSL-only bucket policy
 //       S3 ObjectCreated *.json notification → ttv-process-transcript Lambda
+//   - ttv-{clientId}-legacy-messages S3 bucket
+//       versioned, SSE-S3 encrypted, all public access blocked, SSL-only bucket policy
+//       Deliberately NO S3 event notification of any kind — personal Legacy-tier
+//       video messages must never enter the transcribe/chunk/embed pipeline, and
+//       the bucket name deliberately does NOT end in "-videos" or "-transcripts"
+//       so it falls outside every ttv-*-videos / ttv-*-transcripts IAM wildcard
+//       already granted to the ingest/mediaconvert/video-url Lambda roles.
+//       Retrieval is via tools/get-legacy-video.ts (admin-only, run locally).
 //   - Cognito user pool group named <clientId> with description <clientName>
 //
 // After running this tool:
@@ -233,6 +241,21 @@ async function main(): Promise<void> {
     },
   }));
   console.log(`  ✓ S3 notification → ttv-process-transcript Lambda (.json)`);
+
+  // ── Legacy-tier personal video messages bucket ────────────────────────────
+  //
+  // Up to 10 short personal video messages (Legacy tier), kept as a backup to
+  // the USB drive that is the primary way each message is delivered. This
+  // bucket intentionally gets the same encryption/versioning/policy treatment
+  // as the others but NO S3 event notification — nothing may trigger off an
+  // object landing here. See tools/get-legacy-video.ts for retrieval.
+
+  const legacyMessagesBucket = `ttv-${clientId}-legacy-messages`;
+  console.log(`\nLegacy messages bucket: ${legacyMessagesBucket}`);
+
+  await createBucket(legacyMessagesBucket);
+  await configureBucket(legacyMessagesBucket);
+  console.log(`  ✓ No S3 event notification configured (by design — never enters the AI pipeline)`);
 
   // ── Cognito group ─────────────────────────────────────────────────────────
 
