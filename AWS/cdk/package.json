@@ -10,7 +10,9 @@
     "upload-link": "ts-node tools/generate-upload-link.ts",
     "add-client": "ts-node tools/add-client.ts",
     "reprocess-video": "ts-node tools/reprocess-video.ts",
-    "backfill-video-cors": "ts-node tools/backfill-video-cors.ts"
+    "backfill-video-cors": "ts-node tools/backfill-video-cors.ts",
+    "backfill-legacy-buckets": "ts-node tools/backfill-legacy-messages-buckets.ts",
+    "legacy-video": "ts-node tools/get-legacy-video.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3",
