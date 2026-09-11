@@ -233,6 +233,10 @@ export class TrustVoiceStack extends cdk.Stack {
       actions: ['secretsmanager:GetSecretValue'],
       resources: [
         `arn:aws:secretsmanager:${this.region}:${this.account}:secret:ttv/pinecone-api-key*`,
+        // Principle-bridge theme classification (shared/themeClassifier.ts)
+        // calls Claude to tag each chunk at ingestion time — read-only,
+        // mirrors the grant queryLambdaRole already has.
+        `arn:aws:secretsmanager:${this.region}:${this.account}:secret:ttv/anthropic-api-key*`,
       ],
     }));
 
@@ -449,6 +453,14 @@ export class TrustVoiceStack extends cdk.Stack {
         QUERY_LOG_TABLE: queryLogTable.tableName,
         CHUNKS_TABLE: this.chunksTable.tableName,
         VIDEOS_TABLE: this.videosTable.tableName,
+        // Principle-bridge fallback retrieval — both default to the safest
+        // state. ENABLE_PRINCIPLE_BRIDGE off means none of Stage 2/3 runs at
+        // all; SHADOW_MODE on (the default even if this were ever omitted)
+        // means Stage 2 runs and logs but a trustee never sees its output.
+        // See lambdas/query/index.ts and
+        // claude-code-instructions-principle-bridge-retrieval-v2.md.
+        ENABLE_PRINCIPLE_BRIDGE: 'false',
+        SHADOW_MODE: 'true',
       },
       bundling: {
         minify: true,
@@ -512,6 +524,10 @@ export class TrustVoiceStack extends cdk.Stack {
           PINECONE_SECRET_ARN: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:ttv/pinecone-api-key`,
           PINECONE_INDEX_NAME: 'ttv-embeddings',
           PINECONE_INDEX_HOST: 'https://ttv-embeddings-he5dsra.svc.aped-4627-b74a.pinecone.io',
+          // Principle-bridge theme tagging (shared/themeClassifier.ts) — runs
+          // unconditionally for every new interview; inert extra metadata
+          // until ttv-query's ENABLE_PRINCIPLE_BRIDGE flag is turned on.
+          ANTHROPIC_SECRET_ARN: `arn:aws:secretsmanager:${this.region}:${this.account}:secret:ttv/anthropic-api-key`,
         },
         bundling: {
           minify: true,

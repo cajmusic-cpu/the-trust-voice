@@ -5,13 +5,33 @@ import { withClientIsolation, type IsolationContext } from '../shared/withClient
 import { ok, badRequest, internalError } from '../shared/response';
 import { embedText, embedTexts } from '../shared/embed';
 import { searchChunks, type ChunkMatch } from '../shared/pinecone';
-import { queryWithContext } from '../shared/claude';
-import { buildCitations } from '../shared/citations';
+import { queryWithContext, queryRelatedPrinciple } from '../shared/claude';
+import { buildCitations, type Citation } from '../shared/citations';
+import { classifyQuestionThemes } from '../shared/themeClassifier';
+import { findTheme } from '../shared/themes';
 import { logQuery } from './log';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const CHUNKS_TABLE = process.env['CHUNKS_TABLE']!;
 const VIDEOS_TABLE = process.env['VIDEOS_TABLE']!;
+
+// ── Principle-bridge fallback retrieval — feature flag + shadow mode ─────────
+//
+// Both default to the safest state. ENABLE_PRINCIPLE_BRIDGE defaults OFF, so
+// none of Stage 2/3 below ever runs unless explicitly turned on. Even when it
+// is on, SHADOW_MODE defaults ON (must be explicitly set to 'false' to go
+// live) — Stage 2 still runs and gets logged, but the trustee always sees the
+// same response Stage 1 alone would have produced. See
+// claude-code-instructions-principle-bridge-retrieval-v2.md.
+const ENABLE_PRINCIPLE_BRIDGE = process.env['ENABLE_PRINCIPLE_BRIDGE'] === 'true';
+const SHADOW_MODE = process.env['SHADOW_MODE'] !== 'false';
+
+// Stage 1 "confident direct match" floor, and Stage 2 "related principle" floor.
+// Both are only ever consulted inside the ENABLE_PRINCIPLE_BRIDGE branch — the
+// flag-off path below has no threshold at all, exactly as it does today.
+const DIRECT_MATCH_THRESHOLD = 0.82;
+const RELATED_PRINCIPLE_FLOOR = 0.55;
+const RELATED_PRINCIPLE_MAX_RESULTS = 2;
 
 // Two chunks with embedding cosine similarity above this are considered the same
 // topic; the lower-scoring one is dropped. 0.92 is intentionally strict — with
@@ -266,6 +286,35 @@ async function fetchNextChunk(
   return res.Item as { end_time: number; text: string; sentences_json?: string };
 }
 
+// Applies the same clip-boundary refinement Stage 1 uses (speaker/silence-gap
+// trimming) to an arbitrary set of matches. Shared by Stage 1 and Stage 2 so a
+// related-principle citation gets the same precise clip as a direct one.
+async function refineClipBoundaries(
+  clientId: string,
+  matches: ChunkMatch[],
+  embedding: number[],
+): Promise<ChunkMatch[]> {
+  const uniqueVideoIds = [...new Set(matches.map(m => m.metadata.video_id))];
+  const speakerResults = await Promise.all(
+    uniqueVideoIds.map(vid => fetchSubjectSpeaker(clientId, vid)),
+  );
+  const subjectSpeakerByVideo = new Map<string, string | undefined>(
+    uniqueVideoIds.map((vid, i) => [vid, speakerResults[i]]),
+  );
+
+  return Promise.all(matches.map(async m => {
+    const { startTime, endTime, text } = await speakerBoundaries(
+      m.metadata.sentences_json,
+      m.metadata.start_time,
+      m.metadata.end_time,
+      m.metadata.text,
+      embedding,
+      subjectSpeakerByVideo.get(m.metadata.video_id),
+    );
+    return { ...m, metadata: { ...m.metadata, start_time: startTime, end_time: endTime, text } };
+  }));
+}
+
 function parseBody(event: APIGatewayProxyEvent): QueryBody | null {
   if (!event.body) return null;
   try {
@@ -287,6 +336,212 @@ function parseBody(event: APIGatewayProxyEvent): QueryBody | null {
   }
 }
 
+interface DirectMatchResult {
+  answer: string;
+  citations: Citation[];
+  topScore: number;   // raw top Pinecone similarity, 0 when there were no matches at all
+  matchCount: number;
+}
+
+// Stage 1 — direct match. This is today's entire retrieval/answer pipeline,
+// unchanged. It is always run (both when the principle-bridge flag is off,
+// and — to get today's answer plus the score needed to decide whether Stage 2
+// should even attempt to run — when it's on).
+async function runDirectMatch(
+  clientId: string,
+  question: string,
+  embedding: number[],
+): Promise<DirectMatchResult> {
+  // Step 2: Retrieve the most relevant transcript chunks from Pinecone.
+  // The namespace equals clientId — data isolation is enforced at both
+  // the JWT layer (withClientIsolation) and the vector DB layer (namespace).
+  const matches = deduplicateMatches(
+    await searchChunks(clientId, embedding, 3, { is_subject: true }),
+  );
+
+  const topScore = matches[0]?.score ?? 0;
+
+  if (matches.length === 0) {
+    return {
+      answer:
+        "I don't have any relevant transcript excerpts to answer this question. " +
+        "This topic may not have been covered in the recorded interviews.",
+      citations: [],
+      topScore,
+      matchCount: 0,
+    };
+  }
+
+  // Step 3: Extend each match with the immediately following chunk when its
+  // opening sentences are topically continuous with the query.
+  //
+  // Scoring only the first ADJACENT_SENTENCE_COUNT sentences (not the full
+  // stored vector) prevents dilution when an adjacent chunk spans multiple
+  // topics — a chunk whose first half continues the answer but second half
+  // shifts topic scores low on its full vector but high on its opening segment.
+  //
+  // When extension fires, both chunks' sentences_json arrays are merged so
+  // speakerBoundaries can detect topic shifts anywhere across the combined clip
+  // and stop the video before unrelated content begins.
+
+  // Phase A: fetch all adjacent chunks in parallel.
+  const nextChunks = await Promise.all(
+    matches.map(m => fetchNextChunk(clientId, m.metadata.video_id, m.metadata.chunk_index)),
+  );
+
+  // Phase B: extract first-N-sentence segment text from each adjacent chunk.
+  const adjacentSegments = nextChunks.map(next => {
+    if (!next?.sentences_json) return null;
+    try {
+      const sents = JSON.parse(next.sentences_json) as SentenceMarker[];
+      const text = sents.slice(0, ADJACENT_SENTENCE_COUNT).map(s => s.text).join(' ');
+      return text || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Phase C: batch-embed all non-null segments (one Bedrock call sequence).
+  const toEmbedIdxs: number[] = [];
+  const toEmbedTexts: string[] = [];
+  adjacentSegments.forEach((seg, i) => {
+    if (seg) { toEmbedIdxs.push(i); toEmbedTexts.push(seg); }
+  });
+  const segEmbeddings = toEmbedTexts.length > 0 ? await embedTexts(toEmbedTexts) : [];
+  const adjacentEmbedMap = new Map<number, number[]>();
+  toEmbedIdxs.forEach((idx, pos) => adjacentEmbedMap.set(idx, segEmbeddings[pos]));
+
+  // Phase D: score each opening segment and extend when threshold met.
+  const extendedMatches: ChunkMatch[] = matches.map((m, i) => {
+    const next = nextChunks[i];
+    if (!next) return m;
+    const adjVec = adjacentEmbedMap.get(i);
+    const adjacentScore = adjVec ? cosineSimilarity(embedding, adjVec) : 0;
+    if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
+
+    // Merge sentences_json so speakerBoundaries can find the topic-shift
+    // run anywhere across the combined clip and stop the video there.
+    let mergedSentencesJson = m.metadata.sentences_json;
+    if (m.metadata.sentences_json && next.sentences_json) {
+      try {
+        const a = JSON.parse(m.metadata.sentences_json) as SentenceMarker[];
+        const b = JSON.parse(next.sentences_json) as SentenceMarker[];
+        mergedSentencesJson = JSON.stringify([...a, ...b]);
+      } catch { /* keep primary sentences_json */ }
+    }
+
+    return {
+      ...m,
+      metadata: {
+        ...m.metadata,
+        end_time: next.end_time,
+        text: `${m.metadata.text} ${next.text}`,
+        sentences_json: mergedSentencesJson,
+      },
+    };
+  });
+
+  // Step 4: Remove clips that heavily overlap in time. Extension grows
+  // end_time, so two adjacent chunks returned by Pinecone can produce clips
+  // that overlap by hundreds of seconds — a second citation with >30 s of
+  // shared video content adds no new information.
+  const deduped = removeTimeOverlaps(extendedMatches);
+
+  // Step 5: Apply per-citation score gate and hard cap.
+  // The top match is always included. Any additional match must score at or
+  // above SECOND_CITATION_THRESHOLD — below that the retrieval is surfacing
+  // thematically similar but topically different content.
+  const mergedMatches = deduped
+    .filter((m, i) => i === 0 || m.score >= SECOND_CITATION_THRESHOLD)
+    .slice(0, MAX_CITATIONS);
+
+  // Step 6: Build context chunks for Claude (1-based index for citation matching)
+  const contextChunks = mergedMatches.map((m, i) => ({
+    index: i + 1,
+    text: m.metadata.text,
+    video_id: m.metadata.video_id,
+    start_time: m.metadata.start_time,
+    end_time: m.metadata.end_time,
+    speaker: m.metadata.speaker,
+  }));
+
+  // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
+  const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
+
+  // Step 8: Set clip boundaries using silence gaps, global subject speaker, and
+  // speaker labels.
+  const refinedMatches = await refineClipBoundaries(clientId, mergedMatches, embedding);
+  const citations = buildCitations(refinedMatches, usedCitationIndices);
+
+  return { answer, citations, topScore, matchCount: matches.length };
+}
+
+interface Stage2Result {
+  type: 'related_principle' | 'none';
+  answer: string;
+  citations: Citation[];
+  themes: string[];
+}
+
+const NONE_ANSWER =
+  "This wasn't addressed directly in the interviews, and I couldn't find anything closely " +
+  "related either. I don't want to guess at what your loved one would have wanted here — " +
+  "this may be a good question to bring to the trustee or your family directly.";
+
+// Stage 2 — principle-bridge fallback. Only ever called when
+// ENABLE_PRINCIPLE_BRIDGE is on and Stage 1 did not clear DIRECT_MATCH_THRESHOLD.
+async function runPrincipleBridge(
+  clientId: string,
+  question: string,
+  embedding: number[],
+): Promise<Stage2Result> {
+  const themes = await classifyQuestionThemes(question);
+  if (themes.length === 0) {
+    return { type: 'none', answer: NONE_ANSWER, citations: [], themes: [] };
+  }
+
+  const filtered = deduplicateMatches(
+    await searchChunks(clientId, embedding, 3, { is_subject: true, themes: { $in: themes } }),
+  );
+
+  // Stage 3: floor similarity even on the theme-filtered pass — don't force a
+  // weak match just because it happens to share a theme tag.
+  if (filtered.length === 0 || (filtered[0]?.score ?? 0) < RELATED_PRINCIPLE_FLOOR) {
+    return { type: 'none', answer: NONE_ANSWER, citations: [], themes };
+  }
+
+  // Rank by tag overlap, then similarity as tiebreaker (per the doc's Stage 2
+  // spec), then cap.
+  const ranked = filtered
+    .map(m => ({ match: m, overlap: (m.metadata.themes ?? []).filter(t => themes.includes(t)).length }))
+    .sort((a, b) => b.overlap - a.overlap || b.match.score - a.match.score)
+    .map(x => x.match)
+    .slice(0, RELATED_PRINCIPLE_MAX_RESULTS);
+
+  const refined = await refineClipBoundaries(clientId, ranked, embedding);
+
+  const contextChunks = refined.map((m, i) => ({
+    index: i + 1,
+    text: m.metadata.text,
+    video_id: m.metadata.video_id,
+    start_time: m.metadata.start_time,
+    end_time: m.metadata.end_time,
+    speaker: m.metadata.speaker,
+  }));
+
+  const themeLabels = themes.map(t => findTheme(t)?.label).filter((l): l is string => !!l);
+  const { answer, usedCitationIndices } = await queryRelatedPrinciple(question, contextChunks, themeLabels);
+  const citations = buildCitations(refined, usedCitationIndices);
+
+  // Claude may still decide, given the fixed framing rules, that none of the
+  // provided excerpts are worth citing — treat that the same as "none".
+  if (citations.length === 0) {
+    return { type: 'none', answer: NONE_ANSWER, citations: [], themes };
+  }
+
+  return { type: 'related_principle', answer, citations, themes };
+}
+
 export const handler = withClientIsolation(
   async (
     event: APIGatewayProxyEvent,
@@ -304,156 +559,49 @@ export const handler = withClientIsolation(
 
     try {
       const embedding = await embedText(question);
+      const direct = await runDirectMatch(clientId, question, embedding);
 
-      // Step 2: Retrieve the most relevant transcript chunks from Pinecone.
-      // The namespace equals clientId — data isolation is enforced at both
-      // the JWT layer (withClientIsolation) and the vector DB layer (namespace).
-      const matches = deduplicateMatches(
-        await searchChunks(clientId, embedding, 3, { is_subject: true }),
-      );
-
-      if (matches.length === 0) {
-        return ok({
-          answer:
-            "I don't have any relevant transcript excerpts to answer this question. " +
-            "This topic may not have been covered in the recorded interviews.",
-          citations: [],
-        });
+      // ── Flag off (default): today's exact behavior, nothing else runs. ────
+      if (!ENABLE_PRINCIPLE_BRIDGE) {
+        void logQuery({ clientId, userEmail, question, citationCount: direct.citations.length })
+          .catch(err => console.error('Failed to write query log:', err));
+        return ok({ answer: direct.answer, citations: direct.citations });
       }
 
-      // Step 3: Extend each match with the immediately following chunk when its
-      // opening sentences are topically continuous with the query.
-      //
-      // Scoring only the first ADJACENT_SENTENCE_COUNT sentences (not the full
-      // stored vector) prevents dilution when an adjacent chunk spans multiple
-      // topics — a chunk whose first half continues the answer but second half
-      // shifts topic scores low on its full vector but high on its opening segment.
-      //
-      // When extension fires, both chunks' sentences_json arrays are merged so
-      // speakerBoundaries can detect topic shifts anywhere across the combined clip
-      // and stop the video before unrelated content begins.
+      // ── Flag on: decide direct vs. principle-bridge fallback. ─────────────
+      let type: 'direct' | 'related_principle' | 'none';
+      let liveAnswer: string;
+      let liveCitations: Citation[];
+      let themes: string[] = [];
 
-      // Phase A: fetch all adjacent chunks in parallel.
-      const nextChunks = await Promise.all(
-        matches.map(m => fetchNextChunk(clientId, m.metadata.video_id, m.metadata.chunk_index)),
-      );
+      if (direct.matchCount > 0 && direct.topScore >= DIRECT_MATCH_THRESHOLD) {
+        type = 'direct';
+        liveAnswer = direct.answer;
+        liveCitations = direct.citations;
+      } else {
+        const stage2 = await runPrincipleBridge(clientId, question, embedding);
+        type = stage2.type;
+        liveAnswer = stage2.answer;
+        liveCitations = stage2.citations;
+        themes = stage2.themes;
+      }
 
-      // Phase B: extract first-N-sentence segment text from each adjacent chunk.
-      const adjacentSegments = nextChunks.map(next => {
-        if (!next?.sentences_json) return null;
-        try {
-          const sents = JSON.parse(next.sentences_json) as SentenceMarker[];
-          const text = sents.slice(0, ADJACENT_SENTENCE_COUNT).map(s => s.text).join(' ');
-          return text || null;
-        } catch {
-          return null;
-        }
-      });
+      void logQuery({
+        clientId,
+        userEmail,
+        question,
+        citationCount: SHADOW_MODE ? direct.citations.length : liveCitations.length,
+        shadowType: type,
+        shadowThemes: themes,
+      }).catch(err => console.error('Failed to write query log:', err));
 
-      // Phase C: batch-embed all non-null segments (one Bedrock call sequence).
-      const toEmbedIdxs: number[] = [];
-      const toEmbedTexts: string[] = [];
-      adjacentSegments.forEach((seg, i) => {
-        if (seg) { toEmbedIdxs.push(i); toEmbedTexts.push(seg); }
-      });
-      const segEmbeddings = toEmbedTexts.length > 0 ? await embedTexts(toEmbedTexts) : [];
-      const adjacentEmbedMap = new Map<number, number[]>();
-      toEmbedIdxs.forEach((idx, pos) => adjacentEmbedMap.set(idx, segEmbeddings[pos]));
+      // Shadow mode: Stage 2 ran and was logged above, but the trustee always
+      // sees exactly what Stage 1 alone would have returned.
+      if (SHADOW_MODE) {
+        return ok({ answer: direct.answer, citations: direct.citations });
+      }
 
-      // Phase D: score each opening segment and extend when threshold met.
-      const extendedMatches: ChunkMatch[] = matches.map((m, i) => {
-        const next = nextChunks[i];
-        if (!next) return m;
-        const adjVec = adjacentEmbedMap.get(i);
-        const adjacentScore = adjVec ? cosineSimilarity(embedding, adjVec) : 0;
-        if (adjacentScore < ADJACENT_CHUNK_THRESHOLD) return m;
-
-        // Merge sentences_json so speakerBoundaries can find the topic-shift
-        // run anywhere across the combined clip and stop the video there.
-        let mergedSentencesJson = m.metadata.sentences_json;
-        if (m.metadata.sentences_json && next.sentences_json) {
-          try {
-            const a = JSON.parse(m.metadata.sentences_json) as SentenceMarker[];
-            const b = JSON.parse(next.sentences_json) as SentenceMarker[];
-            mergedSentencesJson = JSON.stringify([...a, ...b]);
-          } catch { /* keep primary sentences_json */ }
-        }
-
-        return {
-          ...m,
-          metadata: {
-            ...m.metadata,
-            end_time: next.end_time,
-            text: `${m.metadata.text} ${next.text}`,
-            sentences_json: mergedSentencesJson,
-          },
-        };
-      });
-
-      // Step 4: Remove clips that heavily overlap in time. Extension grows
-      // end_time, so two adjacent chunks returned by Pinecone can produce clips
-      // that overlap by hundreds of seconds — a second citation with >30 s of
-      // shared video content adds no new information.
-      const deduped = removeTimeOverlaps(extendedMatches);
-
-      // Step 5: Apply per-citation score gate and hard cap.
-      // The top match is always included. Any additional match must score at or
-      // above SECOND_CITATION_THRESHOLD — below that the retrieval is surfacing
-      // thematically similar but topically different content.
-      const mergedMatches = deduped
-        .filter((m, i) => i === 0 || m.score >= SECOND_CITATION_THRESHOLD)
-        .slice(0, MAX_CITATIONS);
-
-      // Step 6: Build context chunks for Claude (1-based index for citation matching)
-      const contextChunks = mergedMatches.map((m, i) => ({
-        index: i + 1,
-        text: m.metadata.text,
-        video_id: m.metadata.video_id,
-        start_time: m.metadata.start_time,
-        end_time: m.metadata.end_time,
-        speaker: m.metadata.speaker,
-      }));
-
-      // Step 7: Ask Claude — it cites excerpts as [1], [2], etc.
-      const { answer, usedCitationIndices } = await queryWithContext(question, contextChunks);
-
-      // Step 8: Set clip boundaries using silence gaps, global subject speaker, and
-      // speaker labels. Fetch subject_speaker from the video record once per unique
-      // video — it is computed globally across the full interview by process-transcript
-      // and is reliable even on short chunks where local sentence count inverts.
-      const uniqueVideoIds = [...new Set(mergedMatches.map(m => m.metadata.video_id))];
-      const speakerResults = await Promise.all(
-        uniqueVideoIds.map(vid => fetchSubjectSpeaker(clientId, vid)),
-      );
-      const subjectSpeakerByVideo = new Map<string, string | undefined>(
-        uniqueVideoIds.map((vid, i) => [vid, speakerResults[i]]),
-      );
-
-      const refinedMatches = await Promise.all(mergedMatches.map(async m => {
-        const { startTime, endTime, text } = await speakerBoundaries(
-          m.metadata.sentences_json,
-          m.metadata.start_time,
-          m.metadata.end_time,
-          m.metadata.text,
-          embedding,
-          subjectSpeakerByVideo.get(m.metadata.video_id),
-        );
-        return {
-          ...m,
-          metadata: {
-            ...m.metadata,
-            start_time: startTime,
-            end_time: endTime,
-            text,
-          },
-        };
-      }));
-      const citations = buildCitations(refinedMatches, usedCitationIndices);
-
-      void logQuery({ clientId, userEmail, question, citationCount: citations.length })
-        .catch(err => console.error('Failed to write query log:', err));
-
-      return ok({ answer, citations });
+      return ok({ answer: liveAnswer, citations: liveCitations, type });
     } catch (err) {
       console.error('Query pipeline failed:', err);
       return internalError();
