@@ -6,7 +6,7 @@ import { parseTranscript } from './parseTranscript';
 import { buildChunks } from './chunk';
 import { embedTexts } from '../shared/embed';
 import { upsertChunks, type ChunkVector } from '../shared/pinecone';
-import { classifyChunkThemes } from '../shared/themeClassifier';
+import { classifyChunkOrBlocks } from '../shared/blockThemeClassifier';
 
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -102,14 +102,27 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   // Only is_subject chunks are ever retrieved by search (query/index.ts always
   // filters is_subject:true), so interviewer-only chunks are left untagged.
   // Sequential, like the Bedrock embedding calls below — avoids bursting the
-  // Anthropic API with one request per chunk. classifyChunkThemes never
-  // throws: a classification failure yields [] rather than failing ingestion.
-  // This runs unconditionally for every new interview, independent of the
-  // ENABLE_PRINCIPLE_BRIDGE flag on ttv-query — the tags are inert extra
-  // metadata until that flag (and Stage 2) is turned on.
-  const themes: string[][] = [];
+  // Anthropic API with one request per chunk. classifyChunkOrBlocks never
+  // throws (classifyChunkThemes underneath never does): a classification
+  // failure yields [] rather than failing ingestion. This runs unconditionally
+  // for every new interview, independent of the ENABLE_PRINCIPLE_BRIDGE flag on
+  // ttv-query — the tags are inert extra metadata until that flag (and Stage 2)
+  // is turned on.
+  //
+  // A chunk with more than one subject speech block (an interviewer question
+  // splitting two unrelated answers) gets each block classified on its own —
+  // see shared/blockThemeClassifier.ts — so the "Explore by Topic" browse view
+  // can show the actual matching clip per theme instead of guessing. Chunks
+  // with 0 or 1 block (the large majority) are unaffected: one whole-chunk
+  // classification, exactly as before.
+  const sentencesJsonList = chunks.map(c => JSON.stringify(c.sentences));
+  const themeResults: Awaited<ReturnType<typeof classifyChunkOrBlocks>>[] = [];
   for (let i = 0; i < chunks.length; i++) {
-    themes.push(isSubject[i] ? await classifyChunkThemes(chunks[i].text) : []);
+    themeResults.push(
+      isSubject[i]
+        ? await classifyChunkOrBlocks(chunks[i].text, sentencesJsonList[i], subjectSpeaker)
+        : { themes: [], blockThemes: null },
+    );
   }
 
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
@@ -152,8 +165,9 @@ async function processRecord(record: S3EventRecord): Promise<void> {
             speaker: chunk.speaker,
             is_subject: isSubject[i],
             text: chunk.text,
-            sentences_json: JSON.stringify(chunk.sentences),
-            themes: themes[i],
+            sentences_json: sentencesJsonList[i],
+            themes: themeResults[i].themes,
+            ...(themeResults[i].blockThemes ? { block_themes: themeResults[i].blockThemes } : {}),
             pinecone_id: `${videoId}/${chunk.chunkIndex}`,
             created_at: now,
           },
@@ -175,8 +189,9 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       speaker: chunk.speaker,
       is_subject: isSubject[i],
       text: chunk.text,
-      sentences_json: JSON.stringify(chunk.sentences),
-      themes: themes[i],
+      sentences_json: sentencesJsonList[i],
+      themes: themeResults[i].themes,
+      block_themes_json: themeResults[i].blockThemes ? JSON.stringify(themeResults[i].blockThemes) : '',
     },
   }));
 

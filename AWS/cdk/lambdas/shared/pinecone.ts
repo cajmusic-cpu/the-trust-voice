@@ -22,6 +22,12 @@ export interface ChunkMetadata extends RecordMetadata {
                         // metadata-value type has no `undefined`, so treat it as
                         // optional at read time (`metadata.themes ?? []`) —
                         // chunks ingested before tagging existed won't have it.
+  block_themes_json: string;  // JSON-encoded BlockThemes[] (shared/blockThemeClassifier.ts),
+                        // only non-empty for a chunk with more than one subject speech
+                        // block — see that file for why block-level tags exist at all.
+                        // '' (not omitted — same RecordMetadataValue constraint as
+                        // `themes` above) for every chunk with 0 or 1 block, which is
+                        // most of them; read defensively as `metadata.block_themes_json || null`.
 }
 
 export interface ChunkVector {
@@ -94,15 +100,22 @@ export async function fetchVectors(
 
 // Metadata-only update — does NOT touch the stored vector values. Used by the
 // theme backfill (tools/backfill-theme-tags.ts --apply) to reconcile tags
-// without re-embedding or re-upserting anything.
+// without re-embedding or re-upserting anything. blockThemesJson is passed only
+// for a multi-block chunk (shared/blockThemeClassifier.ts); omitted for every
+// other chunk, so update() (a Partial<ChunkMetadata> per the Pinecone SDK's own
+// update.d.ts) never has to satisfy the full metadata shape here.
 export async function updateChunkThemes(
   namespace: string,
   id: string,
   themes: string[],
+  blockThemesJson?: string,
 ): Promise<void> {
   const index = await getIndex();
   const ns = index.namespace(namespace);
-  await ns.update({ id, metadata: { themes } });
+  await ns.update({
+    id,
+    metadata: blockThemesJson !== undefined ? { themes, block_themes_json: blockThemesJson } : { themes },
+  });
 }
 
 // Searches the given namespace (= clientId) for the top-k most similar chunks.

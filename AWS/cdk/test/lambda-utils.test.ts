@@ -232,6 +232,7 @@ function makeMatch(videoId: string, chunkIndex: number, text: string): ChunkMatc
       text,
       sentences_json: '[]',
       themes: [],
+      block_themes_json: '',
     },
     values: [],
   };

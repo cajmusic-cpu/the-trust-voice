@@ -143,4 +143,76 @@ describe('topics handler', () => {
     expect(body.themes.length).toBeGreaterThan(0);
     expect(body.themes.every(t => t.count === 0)).toBe(true);
   });
+
+  // This is the exact real-world shape that surfaced the "Education & Growth"
+  // clip-selection bug: one chunk holding two unrelated subject answers, with
+  // the second (education) block being the shorter one. Before block-level
+  // classification, the browse view would show the longer "debt" block under
+  // BOTH themes; with it, each theme gets its own block's own boundaries.
+  test('a multi-block chunk shows each theme its own matching block, not the largest block reused', async () => {
+    mockRefineClipBoundaries.mockResolvedValue([]); // no single-block chunks in this fixture
+    mockSend.mockResolvedValue({
+      Items: [
+        {
+          video_id: 'vid-7', chunk_index: 7, start_time: 339.8, end_time: 434.3,
+          speaker: 'spk_1', text: 'Full raw chunk text (unused for multi-block chunks).',
+          sentences_json: '', themes: ['prohibited_uses', 'education_paths'],
+          block_themes: [
+            { startTime: 339.8, endTime: 358.5, text: 'Prohibited uses answer.', themes: ['prohibited_uses'] },
+            { startTime: 374.4, endTime: 389.3, text: 'Education funding answer.', themes: ['education_paths'] },
+            { startTime: 403.2, endTime: 434.3, text: 'Debt repayment answer.', themes: [] },
+          ],
+        },
+      ],
+    });
+
+    const res = await handler(makeEvent(), {} as never, () => {}) as APIGatewayProxyResult;
+    const body = JSON.parse(res.body) as { themes: Array<{ key: string; count: number; items: TopicItem[] }> };
+
+    const education = body.themes.find(t => t.key === 'education_paths')!;
+    expect(education.count).toBe(1);
+    expect(education.items[0]).toEqual({
+      videoId: 'vid-7', startTime: 374.4, endTime: 389.3, speaker: 'spk_1', quote: 'Education funding answer.',
+    });
+
+    // Not the debt block, and not the whole raw chunk.
+    expect(education.items[0].quote).not.toBe('Debt repayment answer.');
+    expect(education.items[0].quote).not.toBe('Full raw chunk text (unused for multi-block chunks).');
+
+    // A multi-block chunk never goes through refineClipBoundaries — its block
+    // boundaries are already precise, computed at classification time.
+    expect(mockRefineClipBoundaries).toHaveBeenCalledWith('client-1', [], undefined);
+  });
+
+  test('a mix of single- and multi-block chunks both contribute correctly', async () => {
+    mockSend.mockResolvedValue({
+      Items: [
+        {
+          video_id: 'vid-7', chunk_index: 7, start_time: 339.8, end_time: 434.3,
+          speaker: 'spk_1', text: 'ignored', sentences_json: '',
+          themes: ['education_paths'],
+          block_themes: [
+            { startTime: 374.4, endTime: 389.3, text: 'Education funding answer.', themes: ['education_paths'] },
+          ],
+        },
+        {
+          video_id: 'vid-1', chunk_index: 0, start_time: 0, end_time: 30,
+          speaker: 'spk_0', text: 'Single block text.', sentences_json: '',
+          themes: ['wealth_purpose'],
+        },
+      ],
+    });
+    mockRefineClipBoundaries.mockImplementation((_clientId: string, matches: unknown) => Promise.resolve(matches));
+
+    const res = await handler(makeEvent(), {} as never, () => {}) as APIGatewayProxyResult;
+    const body = JSON.parse(res.body) as { themes: Array<{ key: string; count: number }> };
+
+    expect(body.themes.find(t => t.key === 'education_paths')?.count).toBe(1);
+    expect(body.themes.find(t => t.key === 'wealth_purpose')?.count).toBe(1);
+
+    // Only the single-block chunk is passed through refineClipBoundaries.
+    const [, matchesArg] = mockRefineClipBoundaries.mock.calls[0] as [string, Array<{ metadata: { video_id: string } }>];
+    expect(matchesArg).toHaveLength(1);
+    expect(matchesArg[0].metadata.video_id).toBe('vid-1');
+  });
 });
