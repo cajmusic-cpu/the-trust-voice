@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type FormEvent, type KeyboardEvent } from 
 import { queryClient, getVideoUrl, ApiError, type Citation } from '../api/client';
 import { reportVideoEvent } from '../api/telemetry';
 import { signOut } from '../auth/cognito';
+import { AppHeader, type View } from './AppHeader';
 
 const TOPICS = [
   "The grantor's values and what mattered most to them",
@@ -57,9 +58,10 @@ interface Props {
   clientName: string;
   onSignOut: () => void;
   onBack?: () => void;
+  onNavigate: (view: View) => void;
 }
 
-export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Props) {
+export function QueryInterface({ clientId, clientName, onSignOut, onBack, onNavigate }: Props) {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,25 +115,7 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack }: Prop
 
   return (
     <div className="query-page">
-      <header className="top-bar">
-        <div className="top-bar-left">
-          {onBack && (
-            <button className="btn-ghost-sm" onClick={onBack}>← Estates</button>
-          )}
-          <div className="top-bar-brand">
-            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#1B2E45" />
-              <path d="M16 7L7 12v8l9 5 9-5v-8L16 7z" stroke="white" strokeWidth="1.5" strokeLinejoin="round" fill="none" />
-              <path d="M16 7v13M7 12l9 5 9-5" stroke="white" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-            <span>The Trust Voice</span>
-          </div>
-        </div>
-        <div className="top-bar-right">
-          <span className="client-badge">{clientName}</span>
-          <button className="btn-ghost-sm" onClick={handleSignOut}>Sign out</button>
-        </div>
-      </header>
+      <AppHeader clientName={clientName} view="ask" onNavigate={onNavigate} onSignOut={handleSignOut} onBack={onBack} />
 
       <div className="conversation" ref={conversationRef}>
         {turns.length === 0 && !loading && (
@@ -285,13 +269,13 @@ function renderAnswer(text: string, citations: Citation[]) {
   });
 }
 
-function formatTime(seconds: number): string {
+export function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function formatSpeaker(label: string): string {
+export function formatSpeaker(label: string): string {
   // spk_0 → Grantor, spk_1 → Interviewer, etc.
   if (label === 'spk_0') return 'Grantor';
   if (label === 'spk_1') return 'Interviewer';
