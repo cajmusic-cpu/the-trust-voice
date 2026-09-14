@@ -16,6 +16,12 @@ export interface ChunkMetadata extends RecordMetadata {
   is_subject: boolean; // false when subject words < 30% of chunk — filters out interviewer-only chunks
   text: string;        // the transcript excerpt shown as a citation quote
   sentences_json: string;  // JSON-encoded [{startTime, text}] for sub-chunk seeking
+  themes: string[];    // principle-bridge theme keys (shared/themes.ts), [] when
+                        // classification found no confident match. Required in
+                        // this type for new writes, but the Pinecone SDK's
+                        // metadata-value type has no `undefined`, so treat it as
+                        // optional at read time (`metadata.themes ?? []`) —
+                        // chunks ingested before tagging existed won't have it.
 }
 
 export interface ChunkVector {
@@ -84,6 +90,19 @@ export async function fetchVectors(
     if (vals && vals.length > 0) out[id] = vals;
   }
   return out;
+}
+
+// Metadata-only update — does NOT touch the stored vector values. Used by the
+// theme backfill (tools/backfill-theme-tags.ts --apply) to reconcile tags
+// without re-embedding or re-upserting anything.
+export async function updateChunkThemes(
+  namespace: string,
+  id: string,
+  themes: string[],
+): Promise<void> {
+  const index = await getIndex();
+  const ns = index.namespace(namespace);
+  await ns.update({ id, metadata: { themes } });
 }
 
 // Searches the given namespace (= clientId) for the top-k most similar chunks.

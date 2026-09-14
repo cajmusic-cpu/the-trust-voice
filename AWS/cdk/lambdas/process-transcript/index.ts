@@ -6,6 +6,7 @@ import { parseTranscript } from './parseTranscript';
 import { buildChunks } from './chunk';
 import { embedTexts } from '../shared/embed';
 import { upsertChunks, type ChunkVector } from '../shared/pinecone';
+import { classifyChunkThemes } from '../shared/themeClassifier';
 
 const s3 = new S3Client({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -97,6 +98,20 @@ async function processRecord(record: S3EventRecord): Promise<void> {
   // Precompute once — isSubjectChunk is called in steps 3, 4, and 5.
   const isSubject = chunks.map(isSubjectChunk);
 
+  // ── 2c. Classify principle-bridge themes for subject chunks (best-effort) ──
+  // Only is_subject chunks are ever retrieved by search (query/index.ts always
+  // filters is_subject:true), so interviewer-only chunks are left untagged.
+  // Sequential, like the Bedrock embedding calls below — avoids bursting the
+  // Anthropic API with one request per chunk. classifyChunkThemes never
+  // throws: a classification failure yields [] rather than failing ingestion.
+  // This runs unconditionally for every new interview, independent of the
+  // ENABLE_PRINCIPLE_BRIDGE flag on ttv-query — the tags are inert extra
+  // metadata until that flag (and Stage 2) is turned on.
+  const themes: string[][] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    themes.push(isSubject[i] ? await classifyChunkThemes(chunks[i].text) : []);
+  }
+
   // ── 3. Embed all chunks via Bedrock (Titan Embed Text v2, 1024 dims) ───────
   // For subject chunks that are immediately preceded by a non-subject turn,
   // prepend the most informative sentence from that question turn. We select the
@@ -138,6 +153,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
             is_subject: isSubject[i],
             text: chunk.text,
             sentences_json: JSON.stringify(chunk.sentences),
+            themes: themes[i],
             pinecone_id: `${videoId}/${chunk.chunkIndex}`,
             created_at: now,
           },
@@ -160,6 +176,7 @@ async function processRecord(record: S3EventRecord): Promise<void> {
       is_subject: isSubject[i],
       text: chunk.text,
       sentences_json: JSON.stringify(chunk.sentences),
+      themes: themes[i],
     },
   }));
 
