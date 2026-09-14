@@ -277,6 +277,19 @@ export class TrustVoiceStack extends cdk.Stack {
       ],
     }));
 
+    // "Explore by Topic" browse view — pure DynamoDB reads only. No Bedrock, no
+    // Anthropic, no Pinecone: unlike every other Lambda that touches retrieval,
+    // this one does no AI judgment calls, so it needs none of those grants.
+    const topicsLambdaRole = new iam.Role(this, 'TopicsLambdaRole', {
+      roleName: 'ttv-topics-lambda-role',
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+    this.chunksTable.grantReadData(topicsLambdaRole);
+    this.videosTable.grantReadData(topicsLambdaRole);
+
     // ── CLOUDWATCH LOG GROUPS ─────────────────────────────────────────────────
 
     const videoUrlLogs = new logs.LogGroup(this, 'VideoUrlLambdaLogs', {
@@ -305,6 +318,12 @@ export class TrustVoiceStack extends cdk.Stack {
 
     const queryLogs = new logs.LogGroup(this, 'QueryLambdaLogs', {
       logGroupName: '/aws/lambda/ttv-query',
+      retention: logs.RetentionDays.ONE_YEAR,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const topicsLogs = new logs.LogGroup(this, 'TopicsLambdaLogs', {
+      logGroupName: '/aws/lambda/ttv-topics',
       retention: logs.RetentionDays.ONE_YEAR,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -461,6 +480,32 @@ export class TrustVoiceStack extends cdk.Stack {
         // claude-code-instructions-principle-bridge-retrieval-v2.md.
         ENABLE_PRINCIPLE_BRIDGE: 'false',
         SHADOW_MODE: 'true',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        target: 'node22',
+      },
+    });
+
+    // ── TOPICS LAMBDA ("Explore by Topic" browse view) ──────────────────────────
+    //
+    // Independent of Stage 1/2 above — no feature flag, since there's no
+    // generated answer to gate, just existing theme-tagged content organized
+    // by tag. Pure DynamoDB reads; see lambdas/topics/index.ts.
+
+    const topicsFunction = new lambda_nodejs.NodejsFunction(this, 'TopicsFunction', {
+      functionName: 'ttv-topics',
+      entry: path.join(__dirname, '..', 'lambdas', 'topics', 'index.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      role: topicsLambdaRole,
+      logGroup: topicsLogs,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+      environment: {
+        CHUNKS_TABLE: this.chunksTable.tableName,
+        VIDEOS_TABLE: this.videosTable.tableName,
       },
       bundling: {
         minify: true,
@@ -646,6 +691,13 @@ export class TrustVoiceStack extends cdk.Stack {
     videoUrlResource.addMethod(
       'GET',
       new apigateway.LambdaIntegration(videoUrlFunction),
+      authOptions,
+    );
+
+    const topicsResource = clientIdResource.addResource('topics');
+    topicsResource.addMethod(
+      'GET',
+      new apigateway.LambdaIntegration(topicsFunction),
       authOptions,
     );
 
