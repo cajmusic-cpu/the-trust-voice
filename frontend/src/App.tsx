@@ -12,6 +12,8 @@ import { NewPasswordForm } from './components/NewPasswordForm';
 import { TotpSetupForm } from './components/TotpSetupForm';
 import { ClientSelector } from './components/ClientSelector';
 import { QueryInterface } from './components/QueryInterface';
+import { ExploreByTopic } from './components/ExploreByTopic';
+import type { View } from './components/AppHeader';
 
 type Screen =
   | { id: 'loading' }
@@ -20,14 +22,15 @@ type Screen =
   | { id: 'totp_setup'; secret: string; email: string }
   | { id: 'new_password' }
   | { id: 'client_select'; clients: Client[] }
-  | { id: 'query'; client: Client; clients: Client[] };
+  | { id: 'query'; client: Client; clients: Client[] }
+  | { id: 'explore'; client: Client; clients: Client[] };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ id: 'loading' });
   const [pendingEmail, setPendingEmail] = useState('');
 
   const INACTIVITY_MS = 30 * 60 * 1000;
-  const authenticated = screen.id === 'client_select' || screen.id === 'query';
+  const authenticated = screen.id === 'client_select' || screen.id === 'query' || screen.id === 'explore';
 
   const forceSignOut = useCallback(() => {
     void cognitoSignOut();
@@ -111,8 +114,13 @@ export default function App() {
   }
 
   function handleBackToSelector(): void {
-    if (screen.id !== 'query') return;
+    if (screen.id !== 'query' && screen.id !== 'explore') return;
     setScreen({ id: 'client_select', clients: screen.clients });
+  }
+
+  function handleNavigate(view: View): void {
+    if (screen.id !== 'query' && screen.id !== 'explore') return;
+    setScreen({ id: view === 'ask' ? 'query' : 'explore', client: screen.client, clients: screen.clients });
   }
 
   if (screen.id === 'loading') {
@@ -176,6 +184,18 @@ export default function App() {
     );
   }
 
+  if (screen.id === 'explore') {
+    return (
+      <ExploreByTopic
+        clientId={screen.client.id}
+        clientName={screen.client.name}
+        onSignOut={handleSignOut}
+        onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
+        onNavigate={handleNavigate}
+      />
+    );
+  }
+
   // screen.id === 'query'
   return (
     <QueryInterface
@@ -183,6 +203,7 @@ export default function App() {
       clientName={screen.client.name}
       onSignOut={handleSignOut}
       onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
+      onNavigate={handleNavigate}
     />
   );
 }
