@@ -36,7 +36,16 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-// Determines clip start and end boundaries using three signals in priority order:
+export interface SubjectBlock {
+  startIdx: number;
+  endIdx: number;    // exclusive
+  startTime: number;
+  endTime: number;
+  text: string;
+}
+
+// Splits a chunk's sentences into runs of the subject speaker's own speech,
+// using three signals in priority order:
 //
 //  1. Subject speaker (Change 3): taken from the globally-computed subject_speaker
 //     on the video record (word counts across the entire interview). Falls back to
@@ -47,35 +56,27 @@ export function cosineSimilarity(a: number[], b: number[]): number {
 //  2. Silence gap (Change 2, primary boundary): a gap ≥ SILENCE_GAP_SECONDS between
 //     sentence[i].endTime and sentence[i+1].startTime closes the current block.
 //     Multi-second pauses are a reliable interview structure signal independent of
-//     speaker label accuracy. endTimestamp records the actual endTime of the last
+//     speaker label accuracy. Block endTime records the actual endTime of the last
 //     subject sentence so the clip cuts at the correct word boundary.
 //
 //  3. Speaker labels (secondary boundary): when no silence gap closes the block,
 //     2+ consecutive non-subject sentences end it — retained as a fallback for
 //     chunks indexed before endTimes were stored.
 //
-//  When multiple subject blocks exist in a chunk, the block whose text embeds
-//  closest to the query is selected (same cosine metric Pinecone used to retrieve
-//  the chunk). Falls back to original boundaries when sentences_json is absent or
-//  lacks speaker labels. With no queryEmbedding at all (the "Explore by Topic"
-//  browse view — there's no question to score against), the largest subject block
-//  is picked instead — still deterministic, no AI judgment call.
-export async function speakerBoundaries(
-  sentencesJson: string | undefined,
-  originalStartTime: number,
-  originalEndTime: number,
-  fullText: string,
-  queryEmbedding?: number[],
-  subjectSpeaker?: string,
-): Promise<{ startTime: number; endTime: number; text: string }> {
-  const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
-  if (!sentencesJson) return fallback;
+// A chunk with one uninterrupted subject answer yields one block; a chunk where an
+// interviewer question splits two unrelated subject answers yields two (or more) —
+// this is what a multi-topic chunk looks like structurally, and what
+// shared/blockThemeClassifier.ts keys off to classify each answer on its own
+// terms instead of blurring them into one whole-chunk classification. Returns []
+// when sentencesJson is absent, malformed, empty, or lacks speaker labels.
+export function findSubjectBlocks(sentencesJson: string | undefined, subjectSpeaker?: string): SubjectBlock[] {
+  if (!sentencesJson) return [];
 
   let sentences: SentenceMarker[];
   try { sentences = JSON.parse(sentencesJson) as SentenceMarker[]; }
-  catch { return fallback; }
+  catch { return []; }
 
-  if (sentences.length === 0 || !sentences[0].speaker) return fallback;
+  if (sentences.length === 0 || !sentences[0].speaker) return [];
 
   // Use globally-computed subject speaker when provided (Change 3).
   // Local majority-sentence count is kept as a fallback for vectors indexed
@@ -91,12 +92,13 @@ export async function speakerBoundaries(
 
   // Silence-gap detection requires endTimes stored by Change 1.
   const hasEndTimes = sentences.some(s => typeof s.endTime === 'number' && s.endTime > 0);
+  const fallbackEndTime = sentences[sentences.length - 1]!.endTime;
 
-  interface Block { startIdx: number; endIdx: number; endTimestamp: number }
-  const blocks: Block[] = [];
+  interface RawBlock { startIdx: number; endIdx: number; endTimestamp: number }
+  const rawBlocks: RawBlock[] = [];
 
   let blockStart: number | null = null;
-  let lastSubjectEndTime = originalEndTime;
+  let lastSubjectEndTime = fallbackEndTime;
   let lastSubjectIdx = -1;
 
   for (let i = 0; i < sentences.length; i++) {
@@ -132,28 +134,51 @@ export async function speakerBoundaries(
       // For text: only include through the last subject sentence so any non-subject
       // content at the boundary is excluded from the clip text.
       const textEndIdx = lastSubjectIdx >= blockStart ? lastSubjectIdx + 1 : i + 1;
-      blocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
+      rawBlocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
       blockStart = null;
-      lastSubjectEndTime = originalEndTime;
+      lastSubjectEndTime = fallbackEndTime;
       lastSubjectIdx = -1;
     }
   }
 
   if (blockStart !== null) {
     const textEndIdx = lastSubjectIdx >= blockStart ? lastSubjectIdx + 1 : sentences.length;
-    blocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
+    rawBlocks.push({ startIdx: blockStart, endIdx: textEndIdx, endTimestamp: lastSubjectEndTime });
   }
 
+  return rawBlocks.map(b => ({
+    startIdx: b.startIdx,
+    endIdx: b.endIdx,
+    startTime: sentences[b.startIdx]!.startTime,
+    endTime: b.endTimestamp,
+    text: sentences.slice(b.startIdx, b.endIdx).map(s => s.text).join(' '),
+  }));
+}
+
+// Picks one clip out of a chunk's subject blocks and returns its boundaries —
+// the block whose text embeds closest to the query when one is given (same
+// cosine metric Pinecone used to retrieve the chunk), otherwise the largest
+// block (still deterministic, no AI judgment call — see findSubjectBlocks's
+// doc comment for when that fallback applies). Falls back to the chunk's
+// original boundaries when sentencesJson is absent or lacks speaker labels.
+export async function speakerBoundaries(
+  sentencesJson: string | undefined,
+  originalStartTime: number,
+  originalEndTime: number,
+  fullText: string,
+  queryEmbedding?: number[],
+  subjectSpeaker?: string,
+): Promise<{ startTime: number; endTime: number; text: string }> {
+  const fallback = { startTime: originalStartTime, endTime: originalEndTime, text: fullText };
+
+  const blocks = findSubjectBlocks(sentencesJson, subjectSpeaker);
   if (blocks.length === 0) return fallback;
 
-  let best: Block;
+  let best: SubjectBlock;
   if (blocks.length === 1 || !queryEmbedding) {
     best = blocks.reduce((a, b) => (b.endIdx - b.startIdx) > (a.endIdx - a.startIdx) ? b : a);
   } else {
-    const blockTexts = blocks.map(b =>
-      sentences.slice(b.startIdx, b.endIdx).map(s => s.text).join(' '),
-    );
-    const blockEmbeddings = await embedTexts(blockTexts);
+    const blockEmbeddings = await embedTexts(blocks.map(b => b.text));
     let bestScore = -Infinity;
     let bestIdx = 0;
     for (let i = 0; i < blockEmbeddings.length; i++) {
@@ -163,11 +188,7 @@ export async function speakerBoundaries(
     best = blocks[bestIdx]!;
   }
 
-  const newStartTime = sentences[best.startIdx].startTime;
-  const newEndTime = best.endTimestamp;
-  const text = sentences.slice(best.startIdx, best.endIdx).map(s => s.text).join(' ');
-
-  return { startTime: newStartTime, endTime: newEndTime, text };
+  return { startTime: best.startTime, endTime: best.endTime, text: best.text };
 }
 
 // Reads subject_speaker from the video record — globally computed across the full

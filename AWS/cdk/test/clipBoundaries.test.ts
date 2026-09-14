@@ -20,6 +20,7 @@ import {
   speakerBoundaries,
   fetchSubjectSpeaker,
   refineClipBoundaries,
+  findSubjectBlocks,
   type SentenceMarker,
 } from '../lambdas/shared/clipBoundaries';
 import type { ChunkMatch } from '../lambdas/shared/pinecone';
@@ -45,11 +46,77 @@ describe('cosineSimilarity', () => {
   });
 });
 
-// ── speakerBoundaries ────────────────────────────────────────────────────
+// ── findSubjectBlocks ────────────────────────────────────────────────────
 
 function sentence(overrides: Partial<SentenceMarker>): SentenceMarker {
   return { startTime: 0, endTime: 0, text: '', speaker: 'spk_0', ...overrides };
 }
+
+describe('findSubjectBlocks', () => {
+  test('returns [] when sentencesJson is absent', () => {
+    expect(findSubjectBlocks(undefined)).toEqual([]);
+  });
+
+  test('returns [] on malformed JSON', () => {
+    expect(findSubjectBlocks('not json')).toEqual([]);
+  });
+
+  test('returns [] for an empty sentences array', () => {
+    expect(findSubjectBlocks('[]')).toEqual([]);
+  });
+
+  test('returns [] when sentences lack speaker labels', () => {
+    const sentences = [{ startTime: 0, endTime: 1, text: 'hi' }];
+    expect(findSubjectBlocks(JSON.stringify(sentences))).toEqual([]);
+  });
+
+  test('one uninterrupted subject turn yields exactly one block spanning it', () => {
+    const sentences: SentenceMarker[] = [
+      sentence({ startTime: 0, endTime: 2, text: 'One.', speaker: 'spk_0' }),
+      sentence({ startTime: 2.2, endTime: 4, text: 'Two.', speaker: 'spk_0' }),
+    ];
+    const blocks = findSubjectBlocks(JSON.stringify(sentences));
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toMatchObject({ startIdx: 0, endIdx: 2, startTime: 0, endTime: 4, text: 'One. Two.' });
+  });
+
+  test('an interviewer question splitting two subject answers yields two blocks, each with its own boundaries', () => {
+    // Mirrors the real Lisa Satterfield chunk 7 shape that surfaced this bug:
+    // subject answer, interviewer question, unrelated subject answer.
+    const sentences: SentenceMarker[] = [
+      sentence({ startTime: 0, endTime: 5, text: 'Answer about education.', speaker: 'spk_1' }),
+      sentence({ startTime: 12, endTime: 14, text: 'What about debt?', speaker: 'spk_0' }),
+      sentence({ startTime: 20, endTime: 25, text: 'Answer about debt.', speaker: 'spk_1' }),
+    ];
+    const blocks = findSubjectBlocks(JSON.stringify(sentences), 'spk_1');
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toMatchObject({ startTime: 0, endTime: 5, text: 'Answer about education.' });
+    expect(blocks[1]).toMatchObject({ startTime: 20, endTime: 25, text: 'Answer about debt.' });
+  });
+
+  test('a brief interjection (< silence gap) does not split the block', () => {
+    const sentences: SentenceMarker[] = [
+      sentence({ startTime: 0, endTime: 2, text: 'Part one.', speaker: 'spk_1' }),
+      sentence({ startTime: 2.3, endTime: 2.6, text: 'mm-hm', speaker: 'spk_0' }),
+      sentence({ startTime: 2.8, endTime: 5, text: 'Part two.', speaker: 'spk_1' }),
+    ];
+    const blocks = findSubjectBlocks(JSON.stringify(sentences), 'spk_1');
+    expect(blocks).toHaveLength(1);
+  });
+
+  test('an explicit subjectSpeaker overrides the local sentence-count majority', () => {
+    const sentences: SentenceMarker[] = [
+      sentence({ startTime: 0, endTime: 1, text: 'spk_0 line.', speaker: 'spk_0' }),
+      sentence({ startTime: 5, endTime: 6, text: 'spk_1 line one.', speaker: 'spk_1' }),
+      sentence({ startTime: 6.2, endTime: 7, text: 'spk_1 line two.', speaker: 'spk_1' }),
+    ];
+    const blocks = findSubjectBlocks(JSON.stringify(sentences), 'spk_0');
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].text).toBe('spk_0 line.');
+  });
+});
+
+// ── speakerBoundaries ────────────────────────────────────────────────────
 
 describe('speakerBoundaries', () => {
   const fallbackArgs = [0, 30, 'full chunk text'] as const;
@@ -156,6 +223,7 @@ function makeMatch(overrides: Partial<ChunkMatch['metadata']> = {}): ChunkMatch 
       text: 'full chunk text',
       sentences_json: '',
       themes: [],
+      block_themes_json: '',
       ...overrides,
     },
   };

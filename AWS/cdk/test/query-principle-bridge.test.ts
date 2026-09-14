@@ -76,6 +76,7 @@ function makeMatch(score: number, themes: string[] = [], overrides: Partial<Chun
       text: 'Some excerpt text.',
       sentences_json: '',
       themes,
+      block_themes_json: '',
       ...overrides,
     },
   };
