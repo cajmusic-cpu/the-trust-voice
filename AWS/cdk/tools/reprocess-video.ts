@@ -10,7 +10,7 @@
 //   npm run reprocess-video -- <clientId> <videoId>
 //
 // Example:
-//   npm run reprocess-video -- a5be0dd6-14b9-4a47-a5bf-7440bdc7eb85 d4580cda-ceb0-4f6a-bb14-407c5839ce07
+//   npm run reprocess-video -- c64e37b9-ca34-439b-8a03-c4de24b2b327 ee240f04-e993-4c2d-b36f-f98e2d403e49
 //
 // Steps performed:
 //   1. Query DynamoDB for all chunk records and delete them (BatchWriteItem)
