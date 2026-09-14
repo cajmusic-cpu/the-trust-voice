@@ -74,3 +74,30 @@ export async function getVideoUrl(
   const data = (await res.json()) as { url: string };
   return data.url;
 }
+
+// "Explore by Topic" — a persistent, read-only index of the grantor's answers
+// grouped by theme. Independent of queryClient: no question, no AI judgment
+// call, just existing tagged content. Every theme in the taxonomy is present,
+// including ones with count: 0 (the "No answers on this topic yet" state).
+export interface TopicItem {
+  videoId: string;
+  startTime: number;
+  endTime: number;
+  speaker: string;
+  quote: string;
+}
+
+export interface TopicGroup {
+  key: string;
+  section: string;
+  label: string;
+  count: number;
+  items: TopicItem[];
+}
+
+export async function getTopics(clientId: string): Promise<TopicGroup[]> {
+  const res = await authFetch(`/clients/${clientId}/topics`);
+  if (!res.ok) throw new Error(`Failed to load topics (${res.status})`);
+  const data = (await res.json()) as { themes: TopicGroup[] };
+  return data.themes;
+}
