@@ -10,14 +10,30 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { getClient } from './claude';
 import { THEMES, themesPromptBlock, findTheme } from './themes';
 
-const MAX_THEMES = 2;
+// Raised from 2 to 3 on 2026-09-15, alongside the paragraph below, after a
+// real mismatch (a Lisa Satterfield clip about balancing compassion with
+// trustee responsibility, tagged only compassion_vs_responsibility when
+// compassion_in_struggle genuinely applied too) showed the fixed 2-slot cap
+// forcing a real third match to be dropped. Validated against several real
+// excerpts before shipping: raising the cap alone (without the guidance
+// paragraph) padded a spurious third tag onto content that only ever had one
+// or two genuine themes — the guidance paragraph is what keeps the extra slot
+// from turning into "always find a third one."
+const MAX_THEMES = 3;
 
 const SYSTEM_PROMPT = `You classify text from an estate-planning interview against a fixed list of \
 themes. You must choose ONLY from the theme keys listed below — never invent a new key, never \
-alter a key's spelling. Return the ${MAX_THEMES} best-matching keys, most relevant first, as a \
+alter a key's spelling. Return up to ${MAX_THEMES} best-matching keys, most relevant first, as a \
 JSON array of strings and nothing else (e.g. ["wealth_purpose"] or ["helping_vs_enabling", \
 "financial_independence"]). If nothing in the list is a genuinely good match, return an empty \
-array [] — do not force a weak match.
+array [] — do not force a weak match. Do not force a full set either: return fewer than \
+${MAX_THEMES} when only that many genuinely fit.
+
+Two closely-related keys can both apply to the same passage — for example a personal/emotional \
+theme (how the grantor feels about a hard situation) and a distinct trustee-decision-principle \
+theme (what the trustee should actually do about it) often describe the same passage from two \
+different angles. Include both when that happens; do not drop a genuinely-fitting key just \
+because you already picked one that sounds similar.
 
 Themes:
 ${themesPromptBlock()}`;
@@ -79,7 +95,7 @@ export async function classifyChunkThemes(chunkText: string): Promise<string[]> 
 }
 
 // Called by Stage 2 of query/index.ts (only when ENABLE_PRINCIPLE_BRIDGE=true)
-// to pick 1–2 themes for the trustee's actual question.
+// to pick up to MAX_THEMES themes for the trustee's actual question.
 export async function classifyQuestionThemes(question: string): Promise<string[]> {
   return classify(question, 'question');
 }

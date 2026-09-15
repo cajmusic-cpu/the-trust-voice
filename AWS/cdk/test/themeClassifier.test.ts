@@ -51,13 +51,13 @@ describe('classifyChunkThemes', () => {
     expect(themes).toEqual(['wealth_purpose']);
   });
 
-  test('caps at 2 themes even if Claude returns more', async () => {
-    const create = mockCreate('["wealth_purpose", "family_traditions", "forgiveness"]');
+  test('caps at 3 themes even if Claude returns more', async () => {
+    const create = mockCreate('["wealth_purpose", "family_traditions", "forgiveness", "heirlooms_and_property"]');
     mockGetClient.mockResolvedValue({ messages: { create } } as never);
 
     const themes = await classifyChunkThemes('text');
-    expect(themes).toHaveLength(2);
-    expect(themes).toEqual(['wealth_purpose', 'family_traditions']);
+    expect(themes).toHaveLength(3);
+    expect(themes).toEqual(['wealth_purpose', 'family_traditions', 'forgiveness']);
   });
 
   test('deduplicates repeated keys', async () => {
