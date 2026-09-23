@@ -457,6 +457,17 @@ section { padding: 7rem 4rem; }
 
 /* === FOR PROFESSIONALS === */
 .section-attorneys { background: var(--stone); }
+.attorneys-header { max-width: 1100px; margin: 0 auto 3rem; }
+.professional-types {
+  max-width: 1100px; margin: 0 auto 4rem;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem;
+}
+.professional-type-card {
+  background: var(--white); border: 1px solid var(--stone); border-top: 3px solid var(--gold);
+  padding: 1.75rem 1.5rem;
+}
+.professional-type-card h4 { font-size: 0.78rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--navy); margin-bottom: 0.6rem; }
+.professional-type-card p { font-size: 0.8rem; line-height: 1.7; color: var(--slate); font-weight: 400; }
 .attorneys-inner {
   max-width: 1100px; margin: 0 auto;
   display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; align-items: start;
@@ -589,6 +600,7 @@ footer {
   .diff-header { flex-direction: column; gap: 1.5rem; }
   .diff-lead { text-align: left; max-width: 100%; }
 
+  .professional-types { grid-template-columns: 1fr; }
   .attorneys-inner { grid-template-columns: 1fr; gap: 3rem; }
   .attorney-callout { position: static; }
 
