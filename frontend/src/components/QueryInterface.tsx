@@ -6,7 +6,7 @@ import { AppHeader, type View } from './AppHeader';
 
 const TOPICS = [
   "The grantor's values and what mattered most to them",
-  "Guidance on supporting a beneficiary's education",
+  "Context on supporting a beneficiary's education",
   "Helping a beneficiary purchase a home",
   "How to handle a beneficiary facing financial hardship",
   "The grantor's wishes around health, addiction, or treatment",
