@@ -820,16 +820,6 @@ body { min-height: 100vh; background: var(--cream); }
   background: rgba(201,168,76,.1);
 }
 
-.nav-badge {
-  font-size: 0.52rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--navy-deep);
-  background: var(--gold);
-  border-radius: 2px;
-  padding: 1px 5px;
-}
-
 @media (max-width: 720px) {
   .nav-tabs { display: none; }
 }
