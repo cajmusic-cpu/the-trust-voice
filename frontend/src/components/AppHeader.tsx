@@ -53,7 +53,7 @@ export function AppHeader({ clientName, view, onNavigate, onSignOut, onBack, sho
           {showPhilanthropicLegacy && (
             <button
               type="button"
-              className={`nav-tab${view === 'philanthropic' ? ' nav-tab--active' : ''}`}
+              className="nav-tab nav-tab--philanthropic"
               aria-current={view === 'philanthropic' ? 'page' : undefined}
               onClick={() => onNavigate('philanthropic')}
             >

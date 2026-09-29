@@ -209,6 +209,7 @@ export default function App() {
       <PhilanthropicLegacy
         clientName={screen.client.name}
         attribution={screen.client.philanthropicLegacyAttribution}
+        description={screen.client.philanthropicLegacyDescription}
         onSignOut={handleSignOut}
         onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
         onNavigate={handleNavigate}

@@ -7,6 +7,7 @@ interface ClientRecord {
   name: string;
   hasPhilanthropicLegacyModule?: boolean;
   philanthropicLegacyAttribution?: string;
+  philanthropicLegacyDescription?: string;
 }
 
 // Loaded once at cold start — client list is stable between deploys

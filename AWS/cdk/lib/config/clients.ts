@@ -12,6 +12,10 @@ export interface ClientConfig {
   // "Developed with Grant Philanthropic Advisors". Omit for accounts with no
   // referral-partner attribution.
   philanthropicLegacyAttribution?: string;
+  // Optional per-account description shown below the title, for accounts
+  // whose module was built with a specific referral partner's framework.
+  // Omit to fall back to the generic description in PhilanthropicLegacy.tsx.
+  philanthropicLegacyDescription?: string;
 }
 
 // Add one entry per grantor family before deploying.
@@ -26,6 +30,10 @@ export const CLIENTS: ClientConfig[] = [
     name: 'Lisa Satterfield',
     hasPhilanthropicLegacyModule: true,
     philanthropicLegacyAttribution: 'Developed with Grant Philanthropic Advisors',
+    philanthropicLegacyDescription:
+      "Recorded privately for her family and designated trustee. Drawn from Grant Philanthropic " +
+      "Advisors' family-giving framework — her values, motivations, and wishes for the causes she " +
+      'cared about most.',
   },
 ];
 
