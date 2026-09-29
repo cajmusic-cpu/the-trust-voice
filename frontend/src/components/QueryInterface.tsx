@@ -59,9 +59,10 @@ interface Props {
   onSignOut: () => void;
   onBack?: () => void;
   onNavigate: (view: View) => void;
+  showPhilanthropicLegacy?: boolean;
 }
 
-export function QueryInterface({ clientId, clientName, onSignOut, onBack, onNavigate }: Props) {
+export function QueryInterface({ clientId, clientName, onSignOut, onBack, onNavigate, showPhilanthropicLegacy }: Props) {
   const [question, setQuestion] = useState('');
   const [turns, setTurns] = useState<Turn[]>([]);
   const [loading, setLoading] = useState(false);
@@ -115,7 +116,14 @@ export function QueryInterface({ clientId, clientName, onSignOut, onBack, onNavi
 
   return (
     <div className="query-page">
-      <AppHeader clientName={clientName} view="ask" onNavigate={onNavigate} onSignOut={handleSignOut} onBack={onBack} />
+      <AppHeader
+        clientName={clientName}
+        view="ask"
+        onNavigate={onNavigate}
+        onSignOut={handleSignOut}
+        onBack={onBack}
+        showPhilanthropicLegacy={showPhilanthropicLegacy}
+      />
 
       <div className="conversation" ref={conversationRef}>
         {turns.length === 0 && !loading && (
