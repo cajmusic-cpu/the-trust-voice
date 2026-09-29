@@ -58,7 +58,6 @@ export function AppHeader({ clientName, view, onNavigate, onSignOut, onBack, sho
               onClick={() => onNavigate('philanthropic')}
             >
               Philanthropic Legacy
-              <span className="nav-badge">New</span>
             </button>
           )}
         </nav>
