@@ -13,6 +13,7 @@ import { TotpSetupForm } from './components/TotpSetupForm';
 import { ClientSelector } from './components/ClientSelector';
 import { QueryInterface } from './components/QueryInterface';
 import { ExploreByTopic } from './components/ExploreByTopic';
+import { PhilanthropicLegacy } from './components/PhilanthropicLegacy';
 import type { View } from './components/AppHeader';
 
 type Screen =
@@ -23,14 +24,16 @@ type Screen =
   | { id: 'new_password' }
   | { id: 'client_select'; clients: Client[] }
   | { id: 'query'; client: Client; clients: Client[] }
-  | { id: 'explore'; client: Client; clients: Client[] };
+  | { id: 'explore'; client: Client; clients: Client[] }
+  | { id: 'philanthropic'; client: Client; clients: Client[] };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ id: 'loading' });
   const [pendingEmail, setPendingEmail] = useState('');
 
   const INACTIVITY_MS = 30 * 60 * 1000;
-  const authenticated = screen.id === 'client_select' || screen.id === 'query' || screen.id === 'explore';
+  const authenticated =
+    screen.id === 'client_select' || screen.id === 'query' || screen.id === 'explore' || screen.id === 'philanthropic';
 
   const forceSignOut = useCallback(() => {
     void cognitoSignOut();
@@ -114,13 +117,17 @@ export default function App() {
   }
 
   function handleBackToSelector(): void {
-    if (screen.id !== 'query' && screen.id !== 'explore') return;
+    if (screen.id !== 'query' && screen.id !== 'explore' && screen.id !== 'philanthropic') return;
     setScreen({ id: 'client_select', clients: screen.clients });
   }
 
   function handleNavigate(view: View): void {
-    if (screen.id !== 'query' && screen.id !== 'explore') return;
-    setScreen({ id: view === 'ask' ? 'query' : 'explore', client: screen.client, clients: screen.clients });
+    if (screen.id !== 'query' && screen.id !== 'explore' && screen.id !== 'philanthropic') return;
+    // Defensive: the nav tab only ever renders for entitled accounts, but
+    // guard the route itself too rather than trusting the UI alone.
+    if (view === 'philanthropic' && !screen.client.hasPhilanthropicLegacyModule) return;
+    const id = view === 'ask' ? 'query' : view === 'explore' ? 'explore' : 'philanthropic';
+    setScreen({ id, client: screen.client, clients: screen.clients });
   }
 
   if (screen.id === 'loading') {
@@ -192,6 +199,19 @@ export default function App() {
         onSignOut={handleSignOut}
         onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
         onNavigate={handleNavigate}
+        showPhilanthropicLegacy={screen.client.hasPhilanthropicLegacyModule}
+      />
+    );
+  }
+
+  if (screen.id === 'philanthropic') {
+    return (
+      <PhilanthropicLegacy
+        clientName={screen.client.name}
+        attribution={screen.client.philanthropicLegacyAttribution}
+        onSignOut={handleSignOut}
+        onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
+        onNavigate={handleNavigate}
       />
     );
   }
@@ -204,6 +224,7 @@ export default function App() {
       onSignOut={handleSignOut}
       onBack={screen.clients.length > 1 ? handleBackToSelector : undefined}
       onNavigate={handleNavigate}
+      showPhilanthropicLegacy={screen.client.hasPhilanthropicLegacyModule}
     />
   );
 }

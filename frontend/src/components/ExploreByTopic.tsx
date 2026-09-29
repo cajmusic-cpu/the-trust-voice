@@ -10,6 +10,7 @@ interface Props {
   onSignOut: () => void;
   onBack?: () => void;
   onNavigate: (view: View) => void;
+  showPhilanthropicLegacy?: boolean;
 }
 
 interface Section {
@@ -35,7 +36,7 @@ function groupBySection(themes: TopicGroup[]): Section[] {
   return sections;
 }
 
-export function ExploreByTopic({ clientId, clientName, onSignOut, onBack, onNavigate }: Props) {
+export function ExploreByTopic({ clientId, clientName, onSignOut, onBack, onNavigate, showPhilanthropicLegacy }: Props) {
   const [themes, setThemes] = useState<TopicGroup[] | null>(null);
   const [error, setError] = useState('');
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
@@ -67,7 +68,14 @@ export function ExploreByTopic({ clientId, clientName, onSignOut, onBack, onNavi
 
   return (
     <div className="query-page">
-      <AppHeader clientName={clientName} view="explore" onNavigate={onNavigate} onSignOut={handleSignOut} onBack={onBack} />
+      <AppHeader
+        clientName={clientName}
+        view="explore"
+        onNavigate={onNavigate}
+        onSignOut={handleSignOut}
+        onBack={onBack}
+        showPhilanthropicLegacy={showPhilanthropicLegacy}
+      />
 
       <div className="explore-page">
         {themes === null && !error && (

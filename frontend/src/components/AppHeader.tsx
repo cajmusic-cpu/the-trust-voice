@@ -1,10 +1,11 @@
-// Shared top bar for the two authenticated views (QueryInterface, ExploreByTopic).
+// Shared top bar for the authenticated views (QueryInterface, ExploreByTopic,
+// and the entitlement-gated PhilanthropicLegacy).
 // Extracted so the "Explore by Topic" nav item is reachable from anywhere per
 // the source doc's requirement #3 — a trustee is never more than one click
 // from either view. Structural extraction only: brand/client-badge/sign-out
 // markup is unchanged from QueryInterface's original inline header.
 
-export type View = 'ask' | 'explore';
+export type View = 'ask' | 'explore' | 'philanthropic';
 
 interface Props {
   clientName: string;
@@ -12,9 +13,12 @@ interface Props {
   onNavigate: (view: View) => void;
   onSignOut: () => void;
   onBack?: () => void;
+  // Entitlement-gated: the tab renders only for accounts with the module
+  // turned on. No visible-but-inactive tab for accounts without it.
+  showPhilanthropicLegacy?: boolean;
 }
 
-export function AppHeader({ clientName, view, onNavigate, onSignOut, onBack }: Props) {
+export function AppHeader({ clientName, view, onNavigate, onSignOut, onBack, showPhilanthropicLegacy }: Props) {
   return (
     <header className="top-bar">
       <div className="top-bar-left">
@@ -46,6 +50,17 @@ export function AppHeader({ clientName, view, onNavigate, onSignOut, onBack }: P
           >
             Explore by Topic
           </button>
+          {showPhilanthropicLegacy && (
+            <button
+              type="button"
+              className={`nav-tab${view === 'philanthropic' ? ' nav-tab--active' : ''}`}
+              aria-current={view === 'philanthropic' ? 'page' : undefined}
+              onClick={() => onNavigate('philanthropic')}
+            >
+              Philanthropic Legacy
+              <span className="nav-badge">New</span>
+            </button>
+          )}
         </nav>
       </div>
       <div className="top-bar-right">

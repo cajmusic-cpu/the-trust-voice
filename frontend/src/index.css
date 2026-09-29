@@ -796,6 +796,9 @@ body { min-height: 100vh; background: var(--cream); }
 }
 
 .nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: none;
   border: none;
   padding: 6px 10px;
@@ -815,6 +818,16 @@ body { min-height: 100vh; background: var(--cream); }
 .nav-tab--active {
   color: var(--gold-light);
   background: rgba(201,168,76,.1);
+}
+
+.nav-badge {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--navy-deep);
+  background: var(--gold);
+  border-radius: 2px;
+  padding: 1px 5px;
 }
 
 @media (max-width: 720px) {
@@ -948,6 +961,66 @@ body { min-height: 100vh; background: var(--cream); }
   word-break: break-all;
   text-align: center;
 }
+
+/* ── PHILANTHROPIC LEGACY ─────────────────────────────────────────────── */
+
+.philanthropic-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 20px 60px;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.philanthropic-title { text-align: left; margin-bottom: 4px; }
+
+.philanthropic-attribution {
+  font-size: 0.72rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  margin-bottom: 28px;
+}
+
+.philanthropic-video-wrap {
+  position: relative;
+  background: #000;
+  border-radius: 2px;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 28px;
+}
+
+.philanthropic-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.philanthropic-description {
+  color: var(--slate);
+  font-size: 0.92rem;
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+  margin-bottom: 24px;
+}
+
+.philanthropic-callout {
+  background: var(--gold-pale);
+  border-left: 3px solid var(--gold);
+  border-radius: 2px;
+  padding: 16px 20px;
+  color: var(--navy);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  margin-bottom: 32px;
+}
+
+.philanthropic-back { padding: 8px 0; }
 
 /* ── LOADING SCREEN ───────────────────────────────────────────────────── */
 

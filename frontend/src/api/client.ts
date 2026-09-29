@@ -29,6 +29,8 @@ async function authFetch(path: string, options?: RequestInit): Promise<Response>
 export interface Client {
   id: string;
   name: string;
+  hasPhilanthropicLegacyModule?: boolean;
+  philanthropicLegacyAttribution?: string;
 }
 
 export async function getClients(): Promise<Client[]> {
