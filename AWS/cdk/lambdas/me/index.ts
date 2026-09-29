@@ -5,6 +5,8 @@ import { ok } from '../shared/response';
 interface ClientRecord {
   id: string;
   name: string;
+  hasPhilanthropicLegacyModule?: boolean;
+  philanthropicLegacyAttribution?: string;
 }
 
 // Loaded once at cold start — client list is stable between deploys

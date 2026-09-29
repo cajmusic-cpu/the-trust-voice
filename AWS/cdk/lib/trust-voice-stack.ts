@@ -444,7 +444,14 @@ export class TrustVoiceStack extends cdk.Stack {
       logGroup: meLogs,
       timeout: cdk.Duration.seconds(10),
       environment: {
-        CLIENTS_JSON: JSON.stringify(CLIENTS.map(c => ({ id: c.id, name: c.name }))),
+        CLIENTS_JSON: JSON.stringify(CLIENTS.map(c => ({
+          id: c.id,
+          name: c.name,
+          hasPhilanthropicLegacyModule: c.hasPhilanthropicLegacyModule ?? false,
+          ...(c.philanthropicLegacyAttribution
+            ? { philanthropicLegacyAttribution: c.philanthropicLegacyAttribution }
+            : {}),
+        }))),
       },
       bundling: {
         minify: true,
