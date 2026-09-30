@@ -820,6 +820,17 @@ body { min-height: 100vh; background: var(--cream); }
   background: rgba(201,168,76,.1);
 }
 
+/* Always-on gold-outlined treatment, independent of active state - this tab
+   stands out permanently rather than only when selected. */
+.nav-tab--philanthropic {
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  background: rgba(0,0,0,.22);
+  color: var(--gold);
+  font-weight: 700;
+}
+.nav-tab--philanthropic:hover { color: var(--gold-light); }
+
 @media (max-width: 720px) {
   .nav-tabs { display: none; }
 }
@@ -957,29 +968,51 @@ body { min-height: 100vh; background: var(--cream); }
 .philanthropic-page {
   flex: 1;
   overflow-y: auto;
-  padding: 40px 20px 60px;
-  max-width: 680px;
+  padding: 40px 24px 60px;
+  max-width: 760px;
   width: 100%;
   margin: 0 auto;
 }
 
-.philanthropic-title { text-align: left; margin-bottom: 4px; }
-
-.philanthropic-attribution {
-  font-size: 0.72rem;
-  font-style: italic;
-  letter-spacing: 0.02em;
-  color: var(--muted);
-  margin-bottom: 28px;
+.philanthropic-back-link {
+  display: inline-block;
+  margin-bottom: 20px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  cursor: pointer;
+  transition: color .15s;
 }
+.philanthropic-back-link:hover { color: var(--navy); }
 
 .philanthropic-video-wrap {
   position: relative;
-  background: #000;
-  border-radius: 2px;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+  border-radius: 6px;
   overflow: hidden;
   aspect-ratio: 16 / 9;
   margin-bottom: 28px;
+}
+
+.philanthropic-preview-badge {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: var(--gold);
+  color: var(--navy-deep);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 4px 10px;
 }
 
 .philanthropic-play-overlay {
@@ -990,27 +1023,96 @@ body { min-height: 100vh; background: var(--cream); }
   justify-content: center;
 }
 
+.philanthropic-play-icon {
+  width: 100px;
+  height: 100px;
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.5));
+}
+
+.philanthropic-video-caption {
+  position: absolute;
+  bottom: 16px;
+  left: 20px;
+  color: #fff;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+
+.philanthropic-video-duration {
+  position: absolute;
+  bottom: 16px;
+  right: 20px;
+  color: rgba(255,255,255,.7);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.philanthropic-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.philanthropic-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.9rem;
+  font-weight: 400;
+  color: var(--navy);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+.philanthropic-attribution-badge {
+  display: inline-block;
+  background: var(--gold-pale);
+  color: #8A6D23;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
 .philanthropic-description {
   color: var(--slate);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   line-height: 1.8;
   letter-spacing: 0.01em;
-  margin-bottom: 24px;
+  max-width: 640px;
+  margin: 0 0 28px;
 }
 
 .philanthropic-callout {
-  background: var(--gold-pale);
-  border-left: 3px solid var(--gold);
-  border-radius: 2px;
-  padding: 16px 20px;
-  color: var(--navy);
-  font-size: 0.85rem;
-  line-height: 1.7;
-  letter-spacing: 0.01em;
-  margin-bottom: 32px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fff;
+  border: 1px solid var(--stone);
+  border-radius: 6px;
+  padding: 20px 24px;
+  max-width: 640px;
 }
 
-.philanthropic-back { padding: 8px 0; }
+.philanthropic-callout-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.philanthropic-callout p {
+  margin: 0;
+  color: var(--slate);
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.75;
+}
 
 /* ── LOADING SCREEN ───────────────────────────────────────────────────── */
 

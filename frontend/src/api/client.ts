@@ -31,6 +31,7 @@ export interface Client {
   name: string;
   hasPhilanthropicLegacyModule?: boolean;
   philanthropicLegacyAttribution?: string;
+  philanthropicLegacyDescription?: string;
 }
 
 export async function getClients(): Promise<Client[]> {

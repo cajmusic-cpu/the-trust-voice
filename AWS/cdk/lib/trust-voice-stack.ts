@@ -451,6 +451,9 @@ export class TrustVoiceStack extends cdk.Stack {
           ...(c.philanthropicLegacyAttribution
             ? { philanthropicLegacyAttribution: c.philanthropicLegacyAttribution }
             : {}),
+          ...(c.philanthropicLegacyDescription
+            ? { philanthropicLegacyDescription: c.philanthropicLegacyDescription }
+            : {}),
         }))),
       },
       bundling: {
