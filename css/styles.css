@@ -491,6 +491,10 @@ section { padding: 7rem 4rem; }
 .attorney-callout .callout-link:hover { background: var(--gold); color: var(--navy); }
 
 /* === CTA SECTION === */
+.section-who { background: var(--cream); }
+.who-inner { max-width: 640px; }
+.who-body { font-size: 0.9rem; line-height: 1.9; color: var(--slate); font-weight: 400; }
+
 .section-cta { background: var(--navy-deep); text-align: center; padding: 8rem 4rem; position: relative; overflow: hidden; }
 .section-cta::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 65%); }
 .cta-rule { width: 60px; height: 1px; background: var(--gold); margin: 0 auto 2rem; opacity: 0.6; }
