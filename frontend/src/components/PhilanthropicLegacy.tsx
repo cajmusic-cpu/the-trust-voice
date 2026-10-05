@@ -15,6 +15,15 @@ function defaultDescription(clientName: string): string {
     'giving values, motivations, and wishes for the family’s continued philanthropy.';
 }
 
+const NEUTRAL_DESCRIPTION =
+  'Recorded privately for her family and designated trustee. Her values, motivations, and wishes ' +
+  'for the causes she cared about most.';
+
+function descriptionText(clientName: string, attribution: string | undefined, description: string | undefined): string {
+  if (!attribution) return NEUTRAL_DESCRIPTION;
+  return description ?? defaultDescription(clientName);
+}
+
 export function PhilanthropicLegacy({ clientName, attribution, description, onSignOut, onBack, onNavigate }: Props) {
   function handleSignOut() {
     void signOut();
@@ -53,10 +62,10 @@ export function PhilanthropicLegacy({ clientName, attribution, description, onSi
 
         <div className="philanthropic-title-row">
           <h1 className="philanthropic-title">{clientName}&rsquo;s Philanthropic Legacy</h1>
-          {attribution && <span className="philanthropic-attribution-badge">{attribution}</span>}
+          {attribution ? <span className="philanthropic-attribution-badge">{attribution}</span> : null}
         </div>
 
-        <p className="philanthropic-description">{description ?? defaultDescription(clientName)}</p>
+        <p className="philanthropic-description">{descriptionText(clientName, attribution, description)}</p>
 
         <div className="philanthropic-callout">
           <svg className="philanthropic-callout-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">

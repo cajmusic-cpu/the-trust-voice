@@ -29,11 +29,6 @@ export const CLIENTS: ClientConfig[] = [
     id: '594292a9-7704-4507-9f53-4de7eaf34657',
     name: 'Lisa Satterfield',
     hasPhilanthropicLegacyModule: true,
-    philanthropicLegacyAttribution: 'Developed with Grant Philanthropic Advisors',
-    philanthropicLegacyDescription:
-      "Recorded privately for her family and designated trustee. Drawn from Grant Philanthropic " +
-      "Advisors' family-giving framework — her values, motivations, and wishes for the causes she " +
-      'cared about most.',
   },
 ];
 
