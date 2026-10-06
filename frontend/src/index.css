@@ -48,6 +48,13 @@ body { min-height: 100vh; background: var(--cream); }
   margin-bottom: 24px;
 }
 
+.auth-wordmark {
+  margin: 0;
+  padding: 14px 28px;
+  background: var(--navy-deep);
+  border-radius: 2px;
+}
+
 .auth-title {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.95rem;
@@ -187,21 +194,14 @@ body { min-height: 100vh; background: var(--cream); }
   border-bottom: 1px solid rgba(201,168,76,.22);
 }
 
-.top-bar-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+/* Wordmark — values copied from the marketing site's .nav-logo */
+.brand-wordmark {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1.0rem;
-  font-weight: 400;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #fff;
+  font-size: 1.35rem; font-weight: 400;
+  color: #fff; letter-spacing: 0.08em; text-transform: uppercase;
+  white-space: nowrap; flex-shrink: 0;
 }
-
-/* Gold icon box in the dark top bar */
-.top-bar-brand svg rect { fill: var(--gold); }
-.top-bar-brand svg path { stroke: var(--navy-deep); }
+.brand-wordmark span { color: var(--gold); }
 
 .top-bar-left { display: flex; align-items: center; gap: 14px; }
 .top-bar-right { display: flex; align-items: center; gap: 14px; }
@@ -220,6 +220,11 @@ body { min-height: 100vh; background: var(--cream); }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (max-width: 480px) {
+  .top-bar { padding: 0 14px; gap: 10px; }
+  .top-bar-brand { font-size: 1rem; }
+  .client-badge { display: inline-block; max-width: 88px; }
 }
 
 /* ── CLIENT SELECTOR ──────────────────────────────────────────────────── */
